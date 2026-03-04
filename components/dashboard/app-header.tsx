@@ -1,21 +1,25 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
 import {
   ArrowTurnBackwardIcon,
   Logout03Icon,
+  UserCircleIcon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarAvvvatars } from "@/components/ui/avatar"
+import { Avatar, AvatarAvvvatars, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
+import { ProfileModal } from "@/components/dashboard/profile-modal"
 import { useUser } from "@/components/dashboard/user-provider"
 import { createClient } from "@/lib/supabase/client"
 
@@ -58,10 +62,11 @@ function LogoMark() {
 }
 
 export function AppHeader() {
-  const { email, displayName } = useUser()
+  const { email, displayName, avatarUrl } = useUser()
   const router = useRouter()
   const pathname = usePathname()
   const isSubpage = pathname !== "/"
+  const [profileOpen, setProfileOpen] = useState(false)
 
   async function handleSignOut() {
     const supabase = createClient()
@@ -99,7 +104,11 @@ export function AppHeader() {
           <DropdownMenuTrigger asChild>
             <button type="button" className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 focus-visible:ring-offset-2">
               <Avatar size="md" status="online" title={email}>
-                <AvatarAvvvatars value={displayName} />
+                {avatarUrl ? (
+                  <AvatarImage src={avatarUrl} alt={displayName} />
+                ) : (
+                  <AvatarAvvvatars value={displayName} />
+                )}
               </Avatar>
             </button>
           </DropdownMenuTrigger>
@@ -107,12 +116,18 @@ export function AppHeader() {
             <div className="px-2 py-2 text-text-sm font-medium text-gray-cool-300">
               {email}
             </div>
+            <DropdownMenuItem onSelect={() => setProfileOpen(true)}>
+              <HugeiconsIcon icon={UserCircleIcon} size={18} color="currentColor" strokeWidth={1.5} />
+              Profile
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onSelect={handleSignOut}>
               <HugeiconsIcon icon={Logout03Icon} size={18} color="currentColor" strokeWidth={1.5} />
               Sign out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        <ProfileModal open={profileOpen} onOpenChange={setProfileOpen} />
       </div>
     </header>
   )

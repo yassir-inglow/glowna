@@ -126,6 +126,7 @@ export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
                     description={project.description ?? undefined}
                     compactAvatars={project.compact_avatars}
                     members={project.members}
+                    ownerId={project.user_id}
                   />
                 </motion.div>
               ))}
@@ -169,6 +170,7 @@ export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
                       commentCount={task.comment_count}
                       projectName={task.projects?.title}
                       avatars={task.task_assignees.map((a) => ({
+                        src: a.profiles?.avatar_url ?? undefined,
                         fallback: getInitials(a.profiles?.full_name ?? a.profiles?.email),
                         value: a.profiles?.full_name ?? a.profiles?.email ?? undefined,
                       }))}

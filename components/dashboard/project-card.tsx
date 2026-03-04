@@ -9,7 +9,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
-import { Avatar, AvatarAvvvatars, AvatarGroup } from "@/components/ui/avatar"
+import { Avatar, AvatarAvvvatars, AvatarImage, AvatarGroup } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -40,14 +40,18 @@ function MoreIcon() {
 
 function AvatarStack({
   members,
+  ownerId,
   compact = false,
 }: {
   members: ProjectMember[]
+  ownerId: string
   compact?: boolean
 }) {
-  const visible = compact ? members.slice(0, 1) : members
+  const hasCollaborators = members.some((m) => m.id !== ownerId)
 
-  if (visible.length === 0) return null
+  if (!hasCollaborators) return null
+
+  const visible = compact ? members.slice(0, 1) : members
 
   return (
     <AvatarGroup>
@@ -57,7 +61,11 @@ function AvatarStack({
           size="xs"
           className="ring-[1.5px] ring-white"
         >
-          <AvatarAvvvatars value={member.full_name ?? member.email ?? member.id} />
+          {member.avatar_url ? (
+            <AvatarImage src={member.avatar_url} alt="" />
+          ) : (
+            <AvatarAvvvatars value={member.full_name ?? member.email ?? member.id} />
+          )}
         </Avatar>
       ))}
     </AvatarGroup>
@@ -70,12 +78,14 @@ export function ProjectCard({
   description,
   compactAvatars = false,
   members = [],
+  ownerId,
 }: {
   id: string
   title: string
   description?: string
   compactAvatars?: boolean
   members?: ProjectMember[]
+  ownerId: string
 }) {
   const [isPending, startTransition] = useTransition()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -106,7 +116,7 @@ export function ProjectCard({
       )}
     >
       <div className="flex items-center justify-between">
-        <AvatarStack members={members} compact={compactAvatars} />
+        <AvatarStack members={members} ownerId={ownerId} compact={compactAvatars} />
         <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger asChild>
             <button

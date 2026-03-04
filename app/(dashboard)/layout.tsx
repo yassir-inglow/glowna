@@ -19,12 +19,17 @@ export default async function DashboardLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name")
+    .select("full_name, avatar_url")
     .eq("id", user.id)
     .single()
 
   return (
-    <UserProvider id={user.id} email={user.email ?? ""} fullName={profile?.full_name ?? undefined}>
+    <UserProvider
+      id={user.id}
+      email={user.email ?? ""}
+      fullName={profile?.full_name ?? undefined}
+      avatarUrl={profile?.avatar_url ?? undefined}
+    >
       <div className="relative h-screen overflow-hidden bg-bg-primary">
         <div
           aria-hidden="true"

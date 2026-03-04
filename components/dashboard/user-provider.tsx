@@ -6,6 +6,7 @@ type UserData = {
   id: string
   email: string
   fullName?: string
+  avatarUrl?: string
   displayName: string
   initial: string
   firstName: string
@@ -23,11 +24,13 @@ export function UserProvider({
   id,
   email,
   fullName,
+  avatarUrl,
   children,
 }: {
   id: string
   email: string
   fullName?: string
+  avatarUrl?: string
   children: React.ReactNode
 }) {
   const emailName = email.split("@")[0] ?? "Jane"
@@ -41,11 +44,12 @@ export function UserProvider({
       id,
       email,
       fullName,
+      avatarUrl,
       displayName,
       initial: firstName.charAt(0).toUpperCase(),
       firstName,
     }),
-    [id, email, fullName, displayName, firstName],
+    [id, email, fullName, avatarUrl, displayName, firstName],
   )
 
   return <UserContext value={value}>{children}</UserContext>

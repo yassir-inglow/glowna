@@ -140,8 +140,11 @@ export function TaskRow({
           <AvatarGroup>
             {avatars.map((av, i) => (
               <Avatar key={i} size="xs" className="ring-[1.5px] ring-white">
-                {av.src && <AvatarImage src={av.src} alt="" />}
-                <AvatarAvvvatars value={av.value ?? av.fallback} />
+                {av.src ? (
+                  <AvatarImage src={av.src} alt="" />
+                ) : (
+                  <AvatarAvvvatars value={av.value ?? av.fallback} />
+                )}
               </Avatar>
             ))}
           </AvatarGroup>

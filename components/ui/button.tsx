@@ -126,26 +126,31 @@ function Button({
       disabled={loading || props.disabled}
       {...props}
     >
-      {iconOnly ? (
+      {iconOnly && (
         loading ? (
           <Spinner size={iconPx} />
         ) : (
           <HugeiconsIcon icon={iconOnly} size={iconPx} color="currentColor" strokeWidth={1.5} />
         )
-      ) : (
-        <>
-          {loading ? (
-            <Spinner size={iconPx} />
-          ) : (
-            leadingIcon && (
-              <HugeiconsIcon icon={leadingIcon} size={iconPx} color="currentColor" strokeWidth={1.5} />
-            )
-          )}
-          {!loading && children}
-          {!loading && trailingIcon && (
-            <HugeiconsIcon icon={trailingIcon} size={iconPx} color="currentColor" strokeWidth={1.5} />
-          )}
-        </>
+      )}
+      {!iconOnly && (
+        loading ? (
+          <Spinner size={iconPx} />
+        ) : (
+          leadingIcon && (
+            <HugeiconsIcon icon={leadingIcon} size={iconPx} color="currentColor" strokeWidth={1.5} />
+          )
+        )
+      )}
+      {!iconOnly && (
+        asChild ? (
+          <Slot.Slottable>{children}</Slot.Slottable>
+        ) : (
+          !loading && children
+        )
+      )}
+      {!iconOnly && !loading && trailingIcon && (
+        <HugeiconsIcon icon={trailingIcon} size={iconPx} color="currentColor" strokeWidth={1.5} />
       )}
     </Comp>
   )
