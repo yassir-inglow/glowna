@@ -81,7 +81,7 @@ export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
           <Button
             type="button"
             variant="primary"
-            size="md"
+            size="sm"
             className="text-text-sm"
             leadingIcon={Add01Icon}
             onClick={() => setIsCreating(true)}

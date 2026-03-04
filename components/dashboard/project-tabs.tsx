@@ -35,7 +35,7 @@ function ProjectTabs({
 
   return (
     <Tabs value={activeValue} onValueChange={handleValueChange} className="gap-0">
-      <TabsList className="relative h-auto w-[260px] overflow-hidden !rounded-full bg-gray-cool-100 p-px">
+      <TabsList className="relative h-9 w-[260px] overflow-hidden !rounded-full bg-gray-cool-100 p-px">
         <div
           aria-hidden="true"
           className={cn(
@@ -46,13 +46,13 @@ function ProjectTabs({
 
         <TabsTrigger
           value="project"
-          className="relative z-10 w-1/2 !rounded-full py-2 text-text-sm font-medium text-gray-cool-400 transition-colors duration-200 data-[state=active]:text-gray-cool-700"
+          className="relative z-10 h-full w-1/2 !rounded-full text-text-sm font-medium text-gray-cool-400 transition-colors duration-200 data-[state=active]:text-gray-cool-700"
         >
           Project
         </TabsTrigger>
         <TabsTrigger
           value="tasks"
-          className="relative z-10 flex w-1/2 items-center justify-center gap-2 !rounded-full py-2 text-text-sm font-medium text-gray-cool-400 transition-colors duration-200 data-[state=active]:text-gray-cool-700"
+          className="relative z-10 flex h-full w-1/2 items-center justify-center gap-2 !rounded-full text-text-sm font-medium text-gray-cool-400 transition-colors duration-200 data-[state=active]:text-gray-cool-700"
         >
           My tasks
           <span className="!rounded-full bg-brand-500 px-1.5 text-text-sm font-semibold text-white">

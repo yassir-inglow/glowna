@@ -23,7 +23,7 @@ export function HomeGreeting() {
       <p className="text-text-xl font-medium text-gray-cool-400">
         {currentDate}
       </p>
-      <h1 className="text-[72px]/none italic text-gray-cool-800 [font-family:'PT_Serif',serif]">
+      <h1 className="text-[52px]/none italic text-gray-cool-800 [font-family:'PT_Serif',serif]">
         {getGreeting()}, {firstName}
       </h1>
     </section>

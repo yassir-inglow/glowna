@@ -255,7 +255,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      accept_project_invitation: {
+        Args: {
+          p_token: string
+        }
+        Returns: Json
+      }
+      get_pending_invitations: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never

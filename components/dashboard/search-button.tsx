@@ -102,8 +102,8 @@ export function SearchButton({ value, onValueChange, placeholder = "Search…" }
     <div
       ref={containerRef}
       className={cn(
-        "flex h-[32px] items-center overflow-hidden rounded-full border border-gray-cool-100 bg-alpha-900 transition-[width] duration-300 ease-in-out",
-        isOpen ? "w-[220px]" : "w-[32px]"
+        "flex h-9 items-center overflow-hidden rounded-full border border-gray-cool-100 bg-alpha-900 transition-[width] duration-300 ease-in-out",
+        isOpen ? "w-[220px]" : "w-9"
       )}
     >
       {/* Search icon — doubles as trigger when closed */}
@@ -111,7 +111,7 @@ export function SearchButton({ value, onValueChange, placeholder = "Search…" }
         type="button"
         onClick={isOpen ? undefined : open}
         className={cn(
-          "flex h-[32px] w-[32px] shrink-0 items-center justify-center text-gray-cool-500",
+          "flex h-9 w-9 shrink-0 items-center justify-center text-gray-cool-500",
           !isOpen && "hover:text-gray-cool-700"
         )}
         aria-label={isOpen ? undefined : placeholder}
