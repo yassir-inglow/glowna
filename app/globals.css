@@ -1,26 +1,224 @@
 @import "tailwindcss";
+@import "./design-tokens.css";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================================
+   Tailwind theme — registers design tokens as utility classes.
+   e.g. bg-brand-500, text-gray-cool-600, border-alpha-700
+   ============================================================ */
 
 @theme inline {
+  /* Base colors */
+  --color-white: #FFFFFF;
+  --color-black: #000000;
+
+  /* Fonts */
+  --font-sans: var(--font-family-body);
+  --font-display: var(--font-family-display);
+  --font-mono: var(--font-geist-mono);
+
+  /* Type scale — each entry sets font-size + line-height as a pair.
+     Usage: text-text-sm, text-display-lg, etc. */
+  --text-text-xs: var(--font-size-text-xs);
+  --text-text-xs--line-height: var(--line-height-text-xs);
+
+  --text-text-sm: var(--font-size-text-sm);
+  --text-text-sm--line-height: var(--line-height-text-sm);
+
+  --text-text-md: var(--font-size-text-md);
+  --text-text-md--line-height: var(--line-height-text-md);
+
+  --text-text-lg: var(--font-size-text-lg);
+  --text-text-lg--line-height: var(--line-height-text-lg);
+
+  --text-text-xl: var(--font-size-text-xl);
+  --text-text-xl--line-height: var(--line-height-text-xl);
+
+  --text-display-xs: var(--font-size-display-xs);
+  --text-display-xs--line-height: var(--line-height-display-xs);
+
+  --text-display-sm: var(--font-size-display-sm);
+  --text-display-sm--line-height: var(--line-height-display-sm);
+
+  --text-display-md: var(--font-size-display-md);
+  --text-display-md--line-height: var(--line-height-display-md);
+
+  --text-display-lg: var(--font-size-display-lg);
+  --text-display-lg--line-height: var(--line-height-display-lg);
+
+  --text-display-xl: var(--font-size-display-xl);
+  --text-display-xl--line-height: var(--line-height-display-xl);
+
+  --text-display-2xl: var(--font-size-display-2xl);
+  --text-display-2xl--line-height: var(--line-height-display-2xl);
+
+  /* Gray Cool palette */
+  --color-gray-cool-25: var(--color-gray-cool-25);
+  --color-gray-cool-50: var(--color-gray-cool-50);
+  --color-gray-cool-100: var(--color-gray-cool-100);
+  --color-gray-cool-200: var(--color-gray-cool-200);
+  --color-gray-cool-300: var(--color-gray-cool-300);
+  --color-gray-cool-400: var(--color-gray-cool-400);
+  --color-gray-cool-500: var(--color-gray-cool-500);
+  --color-gray-cool-600: var(--color-gray-cool-600);
+  --color-gray-cool-700: var(--color-gray-cool-700);
+  --color-gray-cool-800: var(--color-gray-cool-800);
+  --color-gray-cool-900: var(--color-gray-cool-900);
+  --color-gray-cool-950: var(--color-gray-cool-950);
+
+  /* Brand palette */
+  --color-brand-25: var(--color-brand-25);
+  --color-brand-50: var(--color-brand-50);
+  --color-brand-100: var(--color-brand-100);
+  --color-brand-200: var(--color-brand-200);
+  --color-brand-300: var(--color-brand-300);
+  --color-brand-400: var(--color-brand-400);
+  --color-brand-500: var(--color-brand-500);
+  --color-brand-600: var(--color-brand-600);
+  --color-brand-700: var(--color-brand-700);
+  --color-brand-800: var(--color-brand-800);
+  --color-brand-900: var(--color-brand-900);
+  --color-brand-950: var(--color-brand-950);
+
+  /* Alpha palette */
+  --color-alpha-25: var(--color-alpha-25);
+  --color-alpha-50: var(--color-alpha-50);
+  --color-alpha-100: var(--color-alpha-100);
+  --color-alpha-200: var(--color-alpha-200);
+  --color-alpha-300: var(--color-alpha-300);
+  --color-alpha-400: var(--color-alpha-400);
+  --color-alpha-500: var(--color-alpha-500);
+  --color-alpha-600: var(--color-alpha-600);
+  --color-alpha-700: var(--color-alpha-700);
+  --color-alpha-800: var(--color-alpha-800);
+  --color-alpha-900: var(--color-alpha-900);
+  --color-alpha-950: var(--color-alpha-950);
+
+  /* Error palette */
+  --color-error-25: var(--color-error-25);
+  --color-error-50: var(--color-error-50);
+  --color-error-100: var(--color-error-100);
+  --color-error-200: var(--color-error-200);
+  --color-error-300: var(--color-error-300);
+  --color-error-400: var(--color-error-400);
+  --color-error-500: var(--color-error-500);
+  --color-error-600: var(--color-error-600);
+  --color-error-700: var(--color-error-700);
+  --color-error-800: var(--color-error-800);
+  --color-error-900: var(--color-error-900);
+  --color-error-950: var(--color-error-950);
+
+  /* Warning palette */
+  --color-warning-25: var(--color-warning-25);
+  --color-warning-50: var(--color-warning-50);
+  --color-warning-100: var(--color-warning-100);
+  --color-warning-200: var(--color-warning-200);
+  --color-warning-300: var(--color-warning-300);
+  --color-warning-400: var(--color-warning-400);
+  --color-warning-500: var(--color-warning-500);
+  --color-warning-600: var(--color-warning-600);
+  --color-warning-700: var(--color-warning-700);
+  --color-warning-800: var(--color-warning-800);
+  --color-warning-900: var(--color-warning-900);
+  --color-warning-950: var(--color-warning-950);
+
+  /* Semantic surface colors */
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-bg-tertiary: var(--bg-tertiary);
+  --color-bg-brand: var(--bg-brand);
+  --color-bg-brand-hover: var(--bg-brand-hover);
+  --color-bg-brand-subtle: var(--bg-brand-subtle);
+  --color-bg-error-subtle: var(--bg-error-subtle);
+
+  /* Semantic text colors */
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-text-placeholder: var(--text-placeholder);
+  --color-text-on-brand: var(--text-on-brand);
+  --color-text-brand: var(--text-brand);
+  --color-text-error: var(--text-error);
+
+  /* Semantic border colors */
+  --color-border-primary: var(--border-primary);
+  --color-border-secondary: var(--border-secondary);
+  --color-border-focus: var(--border-focus);
+
+  /* Border radius
+     Usage: rounded-radius-md, rounded-radius-xl, etc. */
+  --radius-none: var(--radius-none);
+  --radius-xxs: var(--radius-xxs);
+  --radius-xs: var(--radius-xs);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
+  --radius-3xl: var(--radius-3xl);
+  --radius-4xl: var(--radius-4xl);
+  --radius-full: var(--radius-full);
+
+  /* shadcn semantic color mappings → Figma tokens */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ============================================================
+   shadcn CSS variables — remapped to Figma design tokens
+   ============================================================ */
+
+:root {
+  --radius: 8px;
+  --background: var(--color-white);
+  --foreground: var(--color-gray-cool-900);
+  --card: var(--color-white);
+  --card-foreground: var(--color-gray-cool-900);
+  --popover: var(--color-white);
+  --popover-foreground: var(--color-gray-cool-900);
+  --primary: var(--color-brand-500);
+  --primary-foreground: var(--color-white);
+  --secondary: var(--color-gray-cool-50);
+  --secondary-foreground: var(--color-gray-cool-900);
+  --muted: var(--color-gray-cool-100);
+  --muted-foreground: var(--color-gray-cool-500);
+  --accent: var(--color-gray-cool-100);
+  --accent-foreground: var(--color-gray-cool-900);
+  --destructive: var(--color-error-500);
+  --border: var(--color-gray-cool-200);
+  --input: var(--color-gray-cool-200);
+  --ring: var(--color-brand-500);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
