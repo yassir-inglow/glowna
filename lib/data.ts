@@ -26,6 +26,7 @@ export async function getProjects(): Promise<ProjectWithMembers[]> {
     .from("projects")
     .select(`
       *,
+      owner:profiles!projects_user_id_profiles_fkey(id, email, full_name),
       tasks(
         task_assignees(
           profiles(id, email, full_name)
@@ -40,6 +41,12 @@ export async function getProjects(): Promise<ProjectWithMembers[]> {
     const seen = new Set<string>()
     const members: ProjectMember[] = []
 
+    const owner = project.owner
+    if (owner) {
+      seen.add(owner.id)
+      members.push(owner)
+    }
+
     for (const task of project.tasks ?? []) {
       for (const assignee of task.task_assignees ?? []) {
         const profile = assignee.profiles
@@ -50,7 +57,7 @@ export async function getProjects(): Promise<ProjectWithMembers[]> {
       }
     }
 
-    const { tasks: _tasks, ...rest } = project
+    const { tasks: _tasks, owner: _owner, ...rest } = project
     return { ...rest, members }
   })
 }
@@ -77,7 +84,7 @@ export async function getTasksByProjectId(projectId: string) {
       task_assignees(profiles(id, full_name, email))
     `)
     .eq("project_id", projectId)
-    .order("position", { ascending: true })
+    .order("created_at", { ascending: false })
 
   if (error) throw error
   return data as TaskWithProject[]

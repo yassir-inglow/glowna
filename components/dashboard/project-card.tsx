@@ -1,6 +1,25 @@
-import Link from "next/link";
-import { Avatar, AvatarAvvvatars, AvatarGroup } from "@/components/ui/avatar";
-import type { ProjectMember } from "@/lib/data";
+"use client"
+
+import { useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
+import {
+  Copy01Icon,
+  Delete02Icon,
+  LinkSquare02Icon,
+} from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
+
+import { Avatar, AvatarAvvvatars, AvatarGroup } from "@/components/ui/avatar"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
+import { deleteProject } from "@/app/actions"
+import { cn } from "@/lib/utils"
+import type { ProjectMember } from "@/lib/data"
 
 function MoreIcon() {
   return (
@@ -16,23 +35,33 @@ function MoreIcon() {
       <circle cx="12" cy="12" r="1.8" fill="currentColor" />
       <circle cx="19" cy="12" r="1.8" fill="currentColor" />
     </svg>
-  );
+  )
 }
 
-function AvatarStack({ members, compact = false }: { members: ProjectMember[]; compact?: boolean }) {
-  const visible = compact ? members.slice(0, 1) : members;
+function AvatarStack({
+  members,
+  compact = false,
+}: {
+  members: ProjectMember[]
+  compact?: boolean
+}) {
+  const visible = compact ? members.slice(0, 1) : members
 
-  if (visible.length === 0) return null;
+  if (visible.length === 0) return null
 
   return (
     <AvatarGroup>
       {visible.map((member) => (
-        <Avatar key={member.id} size="xs" className="ring-[1.5px] ring-white">
+        <Avatar
+          key={member.id}
+          size="xs"
+          className="ring-[1.5px] ring-white"
+        >
           <AvatarAvvvatars value={member.full_name ?? member.email ?? member.id} />
         </Avatar>
       ))}
     </AvatarGroup>
-  );
+  )
 }
 
 export function ProjectCard({
@@ -42,36 +71,77 @@ export function ProjectCard({
   compactAvatars = false,
   members = [],
 }: {
-  id: string;
-  title: string;
-  description?: string;
-  compactAvatars?: boolean;
-  members?: ProjectMember[];
+  id: string
+  title: string
+  description?: string
+  compactAvatars?: boolean
+  members?: ProjectMember[]
 }) {
-  return (
-    <Link href={`/projects/${id}`} className="block">
-      <article className="flex h-[200px] flex-col justify-between rounded-[24px] border border-gray-cool-100 bg-gradient-to-b from-gray-cool-25 to-gray-cool-50 p-4 transition-all duration-200 hover:border-gray-cool-200 hover:shadow-[0px_7px_8px_-4px_rgba(93,107,152,0.1)]">
-        <div className="flex items-center justify-between">
-          <AvatarStack members={members} compact={compactAvatars} />
-          <button
-            type="button"
-            className="relative z-10 rounded-full bg-gray-cool-50 p-1 text-gray-cool-500 transition-colors hover:bg-gray-cool-100"
-            aria-label="Project options"
-            onClick={(e) => e.preventDefault()}
-          >
-            <MoreIcon />
-          </button>
-        </div>
+  const [isPending, startTransition] = useTransition()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const router = useRouter()
 
-        <div className="space-y-2">
-          <h3 className="text-[22px]/none italic text-gray-cool-700 [font-family:'PT_Serif',serif]">
-            {title}
-          </h3>
-          {description ? (
-            <p className="text-text-sm font-medium text-gray-cool-400">{description}</p>
-          ) : null}
-        </div>
-      </article>
-    </Link>
-  );
+  function handleCopyLink() {
+    navigator.clipboard.writeText(`${window.location.origin}/projects/${id}`)
+  }
+
+  function handleDelete() {
+    startTransition(() => deleteProject(id))
+  }
+
+  function handleCardClick() {
+    if (menuOpen || isPending) return
+    router.push(`/projects/${id}`)
+  }
+
+  return (
+    <article
+      role="link"
+      tabIndex={0}
+      onClick={handleCardClick}
+      onKeyDown={(e) => { if (e.key === "Enter") handleCardClick() }}
+      className={cn(
+        "flex h-[200px] cursor-pointer flex-col justify-between rounded-[24px] border border-gray-cool-100 bg-gradient-to-b from-gray-cool-25 to-gray-cool-50 p-4 transition-all duration-200 hover:border-gray-cool-200 hover:shadow-[0px_7px_8px_-4px_rgba(93,107,152,0.1)]",
+        isPending && "pointer-events-none opacity-50",
+      )}
+    >
+      <div className="flex items-center justify-between">
+        <AvatarStack members={members} compact={compactAvatars} />
+        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="relative z-10 ml-auto rounded-full bg-gray-cool-50 p-1 text-gray-cool-500 transition-colors hover:bg-gray-cool-100"
+              aria-label="Project options"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MoreIcon />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={handleCopyLink}>
+              <HugeiconsIcon icon={LinkSquare02Icon} size={18} color="currentColor" strokeWidth={1.5} />
+              Copy link
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onSelect={handleDelete}>
+              <HugeiconsIcon icon={Delete02Icon} size={18} color="currentColor" strokeWidth={1.5} />
+              Delete project
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-[22px]/none italic text-gray-cool-700 [font-family:'PT_Serif',serif]">
+          {title}
+        </h3>
+        {description ? (
+          <p className="text-text-sm font-medium text-gray-cool-400">
+            {description}
+          </p>
+        ) : null}
+      </div>
+    </article>
+  )
 }

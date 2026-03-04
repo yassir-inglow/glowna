@@ -3,6 +3,8 @@
 import * as React from "react"
 import { Avatar as AvatarPrimitive } from "radix-ui"
 import Avvvatars from "avvvatars-react"
+import { PlusSignIcon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
 
 import { cn } from "@/lib/utils"
 
@@ -139,10 +141,21 @@ function AvatarGroup({
   )
 }
 
+function getInitials(value: string): string {
+  if (value.includes("@")) {
+    const name = value.split("@")[0]
+    return name.slice(0, 2).toUpperCase()
+  }
+  const parts = value.trim().split(/\s+/)
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  return parts[0].slice(0, 2).toUpperCase()
+}
+
 /**
  * Drop-in replacement for AvatarFallback powered by avvvatars.
  * Pass `value` as a seed (email, full name, etc.) for deterministic color + character generation.
- * Optionally pass `displayValue` to override the displayed text/initials.
+ * Automatically extracts initials from the value ("John Doe" → "JD", "tim@apple.com" → "TI").
+ * Optionally pass `displayValue` to override.
  */
 function AvatarAvvvatars({
   value,
@@ -159,7 +172,7 @@ function AvatarAvvvatars({
   return (
     <Avvvatars
       value={value}
-      displayValue={displayValue}
+      displayValue={displayValue ?? getInitials(value)}
       size={px}
       style={style}
       radius={9999}
@@ -167,5 +180,39 @@ function AvatarAvvvatars({
   )
 }
 
-export { Avatar, AvatarImage, AvatarFallback, AvatarAvvvatars, AvatarGroup }
+const addButtonIconSize: Record<AvatarSize, number> = {
+  xs: 12,
+  sm: 14,
+  md: 16,
+  lg: 16,
+  xl: 20,
+}
+
+function AvatarAddButton({
+  className,
+  size = "xs",
+  ...props
+}: React.ComponentProps<"button"> & { size?: AvatarSize }) {
+  return (
+    <button
+      type="button"
+      data-slot="avatar"
+      className={cn(
+        "relative inline-flex shrink-0 items-center justify-center rounded-full border border-dashed border-gray-cool-200 bg-gray-cool-100 text-gray-cool-400 transition-colors hover:bg-gray-cool-200 hover:text-gray-cool-600 cursor-pointer",
+        sizeStyles[size],
+        className,
+      )}
+      {...props}
+    >
+      <HugeiconsIcon
+        icon={PlusSignIcon}
+        size={addButtonIconSize[size]}
+        color="currentColor"
+        strokeWidth={2}
+      />
+    </button>
+  )
+}
+
+export { Avatar, AvatarImage, AvatarFallback, AvatarAvvvatars, AvatarGroup, AvatarAddButton }
 export type { AvatarStatus, AvatarSize }

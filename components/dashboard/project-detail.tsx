@@ -7,12 +7,15 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SearchButton } from "@/components/dashboard/search-button"
 import { TaskRow } from "@/components/dashboard/task-row"
+import { TaskContextMenu } from "@/components/dashboard/task-context-menu"
+import { NewTaskRow } from "@/components/dashboard/new-task-row"
 import type { Project, TaskWithProject } from "@/lib/data"
 
-function getInitials(email: string | null | undefined): string {
-  if (!email) return "?"
-  const name = email.split("@")[0]
-  return name.slice(0, 2).toUpperCase()
+function getInitials(name: string | null | undefined): string {
+  if (!name) return "?"
+  const parts = name.includes("@") ? [name.split("@")[0]] : name.trim().split(/\s+/)
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  return parts[0].slice(0, 2).toUpperCase()
 }
 
 function ChevronDownIcon() {
@@ -43,6 +46,7 @@ type ProjectDetailProps = {
 
 export function ProjectDetail({ project, tasks }: ProjectDetailProps) {
   const [activeView, setActiveView] = React.useState("overview")
+  const [isCreating, setIsCreating] = React.useState(false)
 
   return (
     <div className="space-y-6">
@@ -81,6 +85,7 @@ export function ProjectDetail({ project, tasks }: ProjectDetailProps) {
             variant="primary"
             size="xs"
             leadingIcon={Add01Icon}
+            onClick={() => setIsCreating(true)}
           >
             New Task
           </Button>
@@ -89,22 +94,30 @@ export function ProjectDetail({ project, tasks }: ProjectDetailProps) {
 
       <div className="overflow-hidden rounded-xl border border-gray-cool-100">
         {tasks.map((task) => (
-          <TaskRow
-            key={task.id}
-            id={task.id}
-            title={task.title}
-            completed={task.completed}
-            showAddons={!!(task.sub_task_total || task.add_text || task.label_text || task.comment_count)}
-            subTaskCurrent={task.sub_task_current}
-            subTaskTotal={task.sub_task_total}
-            addText={task.add_text ?? undefined}
-            labelText={task.label_text ?? undefined}
-            commentCount={task.comment_count}
-            avatars={task.task_assignees.map((a) => ({
-              fallback: getInitials(a.profiles?.email),
-            }))}
-          />
+          <TaskContextMenu key={task.id} taskId={task.id} projectId={task.project_id}>
+            <TaskRow
+              id={task.id}
+              title={task.title}
+              completed={task.completed}
+              showAddons={!!(task.sub_task_total || task.add_text || task.label_text || task.comment_count)}
+              subTaskCurrent={task.sub_task_current}
+              subTaskTotal={task.sub_task_total}
+              addText={task.add_text ?? undefined}
+              labelText={task.label_text ?? undefined}
+              commentCount={task.comment_count}
+              avatars={task.task_assignees.map((a) => ({
+                fallback: getInitials(a.profiles?.full_name ?? a.profiles?.email),
+                value: a.profiles?.full_name ?? a.profiles?.email ?? undefined,
+              }))}
+            />
+          </TaskContextMenu>
         ))}
+        {isCreating && (
+          <NewTaskRow
+            projectId={project.id}
+            onDone={() => setIsCreating(false)}
+          />
+        )}
       </div>
     </div>
   )

@@ -1,6 +1,6 @@
 "use client"
 
-import { useTransition } from "react"
+import { useState, useEffect, useRef, useTransition } from "react"
 
 import {
   Square01Icon,
@@ -11,7 +11,7 @@ import {
 } from "@hugeicons/core-free-icons"
 
 import { cn } from "@/lib/utils"
-import { Avatar, AvatarFallback, AvatarGroup, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarAvvvatars, AvatarGroup, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toggleTaskCompleted } from "@/app/actions"
@@ -21,6 +21,7 @@ import { toggleTaskCompleted } from "@/app/actions"
 export type TaskRowAvatar = {
   src?: string
   fallback: string
+  value?: string
 }
 
 export type TaskRowProps = {
@@ -53,6 +54,28 @@ export function TaskRow({
   selected = false,
 }: TaskRowProps) {
   const [isPending, startTransition] = useTransition()
+  const [contextOpen, setContextOpen] = useState(false)
+  const rowRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!contextOpen) return
+    function dismiss() {
+      setContextOpen(false)
+    }
+    const raf = requestAnimationFrame(() => {
+      window.addEventListener("click", dismiss, { once: true })
+      window.addEventListener("contextmenu", dismiss, { once: true })
+      window.addEventListener("scroll", dismiss, { once: true, capture: true })
+      window.addEventListener("keydown", dismiss, { once: true })
+    })
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener("click", dismiss)
+      window.removeEventListener("contextmenu", dismiss)
+      window.removeEventListener("scroll", dismiss, { capture: true })
+      window.removeEventListener("keydown", dismiss)
+    }
+  }, [contextOpen])
 
   function handleCheckedChange(checked: boolean | "indeterminate") {
     if (!id || checked === "indeterminate") return
@@ -61,9 +84,11 @@ export function TaskRow({
 
   return (
     <div
+      ref={rowRef}
+      onContextMenu={() => setContextOpen(true)}
       className={cn(
         "flex w-full items-center justify-between border-b border-gray-cool-100 px-4 py-4 transition-colors hover:bg-alpha-900",
-        selected && "bg-alpha-900",
+        (selected || contextOpen) && "bg-alpha-900",
         isPending && "opacity-60",
       )}
     >
@@ -116,7 +141,7 @@ export function TaskRow({
             {avatars.map((av, i) => (
               <Avatar key={i} size="xs" className="ring-[1.5px] ring-white">
                 {av.src && <AvatarImage src={av.src} alt="" />}
-                <AvatarFallback>{av.fallback}</AvatarFallback>
+                <AvatarAvvvatars value={av.value ?? av.fallback} />
               </Avatar>
             ))}
           </AvatarGroup>

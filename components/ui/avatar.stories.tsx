@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { Avatar, AvatarFallback, AvatarAvvvatars, AvatarGroup, type AvatarSize } from "./avatar";
+import { Avatar, AvatarFallback, AvatarAvvvatars, AvatarGroup, AvatarAddButton, type AvatarSize } from "./avatar";
 
 const meta: Meta<typeof Avatar> = {
   title: "Design System/Avatar",
@@ -260,6 +260,50 @@ export const AllStatuses: Story = {
             </Avatar>
           ))}
         </div>
+      </div>
+    </div>
+  ),
+};
+
+// ─── Add Button ──────────────────────────────────────────────
+
+export const AddButton: Story = {
+  render: () => (
+    <div className="flex items-end gap-6">
+      {(["xs", "sm", "md", "lg", "xl"] as AvatarSize[]).map((size) => (
+        <div key={size} className="flex flex-col items-center gap-2">
+          <AvatarAddButton size={size} />
+          <span className="text-text-xs text-gray-cool-400">{size}</span>
+        </div>
+      ))}
+    </div>
+  ),
+};
+
+export const GroupWithAddButton: Story = {
+  render: () => (
+    <div className="flex flex-col gap-6">
+      <div>
+        <p className="mb-3 text-text-sm font-medium text-gray-cool-500">Group with add button</p>
+        <AvatarGroup>
+          {["Alice Brown", "Charlie Davis", "Eve Foster"].map((seed) => (
+            <Avatar key={seed} size="xs" className="ring-[1.5px] ring-white">
+              <AvatarAvvvatars value={seed} />
+            </Avatar>
+          ))}
+          <AvatarAddButton size="xs" className="ring-[1.5px] ring-white" />
+        </AvatarGroup>
+      </div>
+      <div>
+        <p className="mb-3 text-text-sm font-medium text-gray-cool-500">Larger group with add button</p>
+        <AvatarGroup>
+          {["Alice Brown", "Charlie Davis"].map((seed) => (
+            <Avatar key={seed} size="sm" className="ring-2 ring-white">
+              <AvatarAvvvatars value={seed} />
+            </Avatar>
+          ))}
+          <AvatarAddButton size="sm" className="ring-2 ring-white" />
+        </AvatarGroup>
       </div>
     </div>
   ),

@@ -47,15 +47,27 @@ function XIcon() {
   )
 }
 
-export function SearchButton() {
+type SearchButtonProps = {
+  value?: string
+  onValueChange?: (value: string) => void
+  placeholder?: string
+}
+
+export function SearchButton({ value, onValueChange, placeholder = "Search…" }: SearchButtonProps) {
+  const controlled = value !== undefined
   const [isOpen, setIsOpen] = React.useState(false)
-  const [query, setQuery] = React.useState("")
+  const [internalQuery, setInternalQuery] = React.useState("")
+  const query = controlled ? value : internalQuery
   const inputRef = React.useRef<HTMLInputElement>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
 
+  const setQuery = (v: string) => {
+    if (controlled) onValueChange?.(v)
+    else setInternalQuery(v)
+  }
+
   const open = () => {
     setIsOpen(true)
-    // Wait for width transition to start before focusing
     setTimeout(() => inputRef.current?.focus(), 150)
   }
 
@@ -102,7 +114,7 @@ export function SearchButton() {
           "flex h-[32px] w-[32px] shrink-0 items-center justify-center text-gray-cool-500",
           !isOpen && "hover:text-gray-cool-700"
         )}
-        aria-label={isOpen ? undefined : "Search projects"}
+        aria-label={isOpen ? undefined : placeholder}
         tabIndex={isOpen ? -1 : 0}
       >
         <SearchIcon />
@@ -114,8 +126,8 @@ export function SearchButton() {
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search…"
-        aria-label="Search projects"
+        placeholder={placeholder}
+        aria-label={placeholder}
         tabIndex={isOpen ? 0 : -1}
         className={cn(
           "min-w-0 flex-1 bg-transparent text-text-sm text-gray-cool-700 placeholder:text-gray-cool-400 outline-none transition-opacity duration-200",
