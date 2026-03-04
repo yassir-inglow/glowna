@@ -1,8 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Add01Icon, Link01Icon, Tick01Icon } from "@hugeicons/core-free-icons"
-import { HugeiconsIcon } from "@hugeicons/react"
+import { Add01Icon } from "@hugeicons/core-free-icons"
 
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarAvvvatars, AvatarGroup, AvatarImage } from "@/components/ui/avatar"
@@ -11,6 +10,8 @@ import { SearchButton } from "@/components/dashboard/search-button"
 import { TaskRow } from "@/components/dashboard/task-row"
 import { TaskContextMenu } from "@/components/dashboard/task-context-menu"
 import { NewTaskRow } from "@/components/dashboard/new-task-row"
+import { InvitePopover } from "@/components/dashboard/invite-popover"
+import { useRealtimeRefresh } from "@/hooks/use-realtime-refresh"
 import type { ProjectWithMembers, TaskWithProject } from "@/lib/data"
 
 function getInitials(name: string | null | undefined): string {
@@ -49,13 +50,8 @@ type ProjectDetailProps = {
 export function ProjectDetail({ project, tasks }: ProjectDetailProps) {
   const [activeView, setActiveView] = React.useState("overview")
   const [isCreating, setIsCreating] = React.useState(false)
-  const [copied, setCopied] = React.useState(false)
 
-  function handleCopyLink() {
-    navigator.clipboard.writeText(`${window.location.origin}/projects/${project.id}`)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+  useRealtimeRefresh({ table: "tasks", filter: `project_id=eq.${project.id}` })
 
   return (
     <div className="space-y-6">
@@ -81,19 +77,7 @@ export function ProjectDetail({ project, tasks }: ProjectDetailProps) {
               ))}
             </AvatarGroup>
           )}
-          <button
-            type="button"
-            onClick={handleCopyLink}
-            className="flex items-center gap-1.5 text-text-sm font-medium text-gray-cool-400 transition-colors hover:text-gray-cool-600"
-          >
-            <HugeiconsIcon
-              icon={copied ? Tick01Icon : Link01Icon}
-              size={16}
-              color="currentColor"
-              strokeWidth={1.5}
-            />
-            {copied ? "Copied!" : "Share"}
-          </button>
+          <InvitePopover projectId={project.id} />
         </div>
       </div>
 

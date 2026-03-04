@@ -12,6 +12,7 @@ import { ProjectTabs, type ProjectTabValue } from "@/components/dashboard/projec
 import { SearchButton } from "@/components/dashboard/search-button"
 import { TaskRow } from "@/components/dashboard/task-row"
 import { TaskContextMenu } from "@/components/dashboard/task-context-menu"
+import { useRealtimeRefresh } from "@/hooks/use-realtime-refresh"
 import type { ProjectWithMembers, TaskWithProject } from "@/lib/data"
 
 function getInitials(name: string | null | undefined): string {
@@ -30,6 +31,8 @@ export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
   const [activeTab, setActiveTab] = React.useState<ProjectTabValue>("project")
   const [search, setSearch] = React.useState("")
   const [isCreating, setIsCreating] = React.useState(false)
+
+  useRealtimeRefresh({ table: "tasks" })
 
   const handleTabChange = (tab: ProjectTabValue) => {
     setActiveTab(tab)

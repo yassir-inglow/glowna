@@ -3,9 +3,8 @@
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import {
-  Copy01Icon,
   Delete02Icon,
-  LinkSquare02Icon,
+  Share08Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
@@ -91,8 +90,8 @@ export function ProjectCard({
   const [menuOpen, setMenuOpen] = useState(false)
   const router = useRouter()
 
-  function handleCopyLink() {
-    navigator.clipboard.writeText(`${window.location.origin}/projects/${id}`)
+  function handleShare() {
+    router.push(`/projects/${id}`)
   }
 
   function handleDelete() {
@@ -129,9 +128,9 @@ export function ProjectCard({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={handleCopyLink}>
-              <HugeiconsIcon icon={LinkSquare02Icon} size={18} color="currentColor" strokeWidth={1.5} />
-              Copy link
+            <DropdownMenuItem onSelect={handleShare}>
+              <HugeiconsIcon icon={Share08Icon} size={18} color="currentColor" strokeWidth={1.5} />
+              Share
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onSelect={handleDelete}>

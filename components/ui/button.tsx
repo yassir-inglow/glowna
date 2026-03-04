@@ -99,8 +99,6 @@ function Button({
   children,
   ...props
 }: ButtonProps) {
-  const Comp = asChild ? Slot.Root : "button"
-
   const isIconOnly = !!iconOnly
   const resolvedSize = isIconOnly && !size?.toString().startsWith("icon-")
     ? (`icon-${size}` as NonNullable<typeof size>)
@@ -113,46 +111,70 @@ function Button({
       ? "gap-[2px]"
       : "gap-1"
 
+  const sharedProps = {
+    "data-slot": "button" as const,
+    "data-variant": variant,
+    "data-size": resolvedSize,
+    className: cn(
+      buttonVariants({ variant, size: resolvedSize }),
+      gapClass,
+      className,
+    ),
+    disabled: loading || props.disabled,
+    ...props,
+  }
+
+  if (asChild) {
+    const child = React.isValidElement(children) ? children : null
+    if (!child) return null
+
+    const injectedChildren = isIconOnly ? (
+      loading ? <Spinner size={iconPx} /> : (
+        iconOnly && <HugeiconsIcon icon={iconOnly} size={iconPx} color="currentColor" strokeWidth={1.5} />
+      )
+    ) : (
+      <>
+        {loading ? (
+          <Spinner size={iconPx} />
+        ) : (
+          leadingIcon && <HugeiconsIcon icon={leadingIcon} size={iconPx} color="currentColor" strokeWidth={1.5} />
+        )}
+        {(child.props as Record<string, unknown>).children}
+        {!loading && trailingIcon && (
+          <HugeiconsIcon icon={trailingIcon} size={iconPx} color="currentColor" strokeWidth={1.5} />
+        )}
+      </>
+    )
+
+    return (
+      <Slot.Root {...sharedProps}>
+        {React.cloneElement(child, undefined, injectedChildren)}
+      </Slot.Root>
+    )
+  }
+
   return (
-    <Comp
-      data-slot="button"
-      data-variant={variant}
-      data-size={resolvedSize}
-      className={cn(
-        buttonVariants({ variant, size: resolvedSize }),
-        gapClass,
-        className,
-      )}
-      disabled={loading || props.disabled}
-      {...props}
-    >
-      {iconOnly && (
+    <button {...sharedProps}>
+      {isIconOnly ? (
         loading ? (
           <Spinner size={iconPx} />
         ) : (
-          <HugeiconsIcon icon={iconOnly} size={iconPx} color="currentColor" strokeWidth={1.5} />
+          <HugeiconsIcon icon={iconOnly!} size={iconPx} color="currentColor" strokeWidth={1.5} />
         )
+      ) : (
+        <>
+          {loading ? (
+            <Spinner size={iconPx} />
+          ) : (
+            leadingIcon && <HugeiconsIcon icon={leadingIcon} size={iconPx} color="currentColor" strokeWidth={1.5} />
+          )}
+          {!loading && children}
+          {!loading && trailingIcon && (
+            <HugeiconsIcon icon={trailingIcon} size={iconPx} color="currentColor" strokeWidth={1.5} />
+          )}
+        </>
       )}
-      {!iconOnly && (
-        loading ? (
-          <Spinner size={iconPx} />
-        ) : (
-          leadingIcon && (
-            <HugeiconsIcon icon={leadingIcon} size={iconPx} color="currentColor" strokeWidth={1.5} />
-          )
-        )
-      )}
-      {!iconOnly && (
-        asChild ? (
-          <Slot.Slottable>{children}</Slot.Slottable>
-        ) : (
-          !loading && children
-        )
-      )}
-      {!iconOnly && !loading && trailingIcon && (
-        <HugeiconsIcon icon={trailingIcon} size={iconPx} color="currentColor" strokeWidth={1.5} />
-      )}
-    </Comp>
+    </button>
   )
 }
 

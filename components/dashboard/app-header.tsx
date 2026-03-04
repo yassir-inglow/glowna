@@ -20,6 +20,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { ProfileModal } from "@/components/dashboard/profile-modal"
+import { NotificationPopover } from "@/components/dashboard/notification-popover"
 import { useUser } from "@/components/dashboard/user-provider"
 import { createClient } from "@/lib/supabase/client"
 
@@ -91,15 +92,17 @@ export function AppHeader() {
       </div>
 
       <div className="flex items-center gap-2">
-        <Button
-          type="button"
-          aria-label="Notifications"
-          variant="secondary"
-          size="icon-sm"
-          className="border-0 bg-alpha-900 text-gray-cool-400 hover:bg-alpha-800"
-        >
-          <BellIcon />
-        </Button>
+        <NotificationPopover>
+          <Button
+            type="button"
+            aria-label="Notifications"
+            variant="secondary"
+            size="icon-sm"
+            className="border-0 bg-alpha-900 text-gray-cool-400 hover:bg-alpha-800"
+          >
+            <BellIcon />
+          </Button>
+        </NotificationPopover>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button type="button" className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 focus-visible:ring-offset-2">

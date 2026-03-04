@@ -1,8 +1,11 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { resend } from "@/lib/resend"
+import { projectInviteEmail } from "@/lib/emails/project-invite"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
+import { headers } from "next/headers"
 
 async function requireUser() {
   const supabase = await createClient()
@@ -18,28 +21,11 @@ async function requireProjectAccess(
   userId: string,
   projectId: string,
 ) {
-  const { data: project } = await supabase
-    .from("projects")
-    .select("user_id")
-    .eq("id", projectId)
-    .single()
-
-  if (!project) throw new Error("Project not found")
-  if (project.user_id === userId) return
-
   const { count } = await supabase
-    .from("task_assignees")
-    .select("profile_id", { count: "exact", head: true })
+    .from("project_members")
+    .select("id", { count: "exact", head: true })
+    .eq("project_id", projectId)
     .eq("profile_id", userId)
-    .in(
-      "task_id",
-      (
-        await supabase
-          .from("tasks")
-          .select("id")
-          .eq("project_id", projectId)
-      ).data?.map((t) => t.id) ?? [],
-    )
 
   if (!count || count === 0) throw new Error("Access denied")
 }
@@ -241,4 +227,180 @@ export async function createProject(title: string, description?: string) {
   if (error) throw error
 
   revalidatePath("/")
+}
+
+export async function inviteToProject(
+  projectId: string,
+  email: string,
+): Promise<{ success: boolean; error?: string }> {
+  const { supabase, user } = await requireUser()
+  await requireProjectAccess(supabase, user.id, projectId)
+
+  const normalizedEmail = email.trim().toLowerCase()
+
+  // Check if this email is already a member
+  const { data: existingProfile } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("email", normalizedEmail)
+    .single()
+
+  if (existingProfile) {
+    const { count } = await supabase
+      .from("project_members")
+      .select("id", { count: "exact", head: true })
+      .eq("project_id", projectId)
+      .eq("profile_id", existingProfile.id)
+
+    if (count && count > 0) {
+      return { success: false, error: "This person is already a member" }
+    }
+  }
+
+  // Check for existing pending invitation
+  const { data: existingInvite } = await supabase
+    .from("project_invitations")
+    .select("id, expires_at")
+    .eq("project_id", projectId)
+    .eq("email", normalizedEmail)
+    .eq("status", "pending")
+    .single()
+
+  if (existingInvite && new Date(existingInvite.expires_at) > new Date()) {
+    return { success: false, error: "An invitation has already been sent to this email" }
+  }
+
+  // If there was an expired pending invite, clean it up
+  if (existingInvite) {
+    await supabase
+      .from("project_invitations")
+      .update({ status: "expired" })
+      .eq("id", existingInvite.id)
+  }
+
+  // Create invitation
+  const { data: invitation, error: inviteError } = await supabase
+    .from("project_invitations")
+    .insert({
+      project_id: projectId,
+      email: normalizedEmail,
+      invited_by: user.id,
+    })
+    .select("token")
+    .single()
+
+  if (inviteError) {
+    return { success: false, error: "Failed to create invitation" }
+  }
+
+  // Get project name and inviter profile for the email
+  const [{ data: project }, { data: inviterProfile }] = await Promise.all([
+    supabase.from("projects").select("title").eq("id", projectId).single(),
+    supabase.from("profiles").select("full_name, email").eq("id", user.id).single(),
+  ])
+
+  const projectName = project?.title ?? "Untitled project"
+  const inviterName = inviterProfile?.full_name ?? inviterProfile?.email ?? "Someone"
+
+  const headerList = await headers()
+  const host = headerList.get("host") ?? "localhost:3000"
+  const protocol = headerList.get("x-forwarded-proto") ?? "http"
+  const origin = `${protocol}://${host}`
+  const acceptUrl = `${origin}/invite?token=${invitation.token}`
+
+  const { subject, html } = projectInviteEmail({
+    projectName,
+    inviterName,
+    acceptUrl,
+    isExistingUser: !!existingProfile,
+  })
+
+  const { error: emailError } = await resend.emails.send({
+    from: "Glowna <onboarding@resend.dev>",
+    to: normalizedEmail,
+    subject,
+    html,
+  })
+
+  if (emailError) {
+    return { success: false, error: "Failed to send invitation email" }
+  }
+
+  return { success: true }
+}
+
+export async function acceptInvitation(
+  token: string,
+): Promise<{ projectId?: string; error?: string }> {
+  const { supabase } = await requireUser()
+
+  // Use SECURITY DEFINER RPC to bypass RLS — the invited user isn't a
+  // project member yet, so normal inserts into project_members are blocked.
+  const { data, error } = await supabase.rpc("accept_project_invitation", {
+    p_token: token,
+  })
+
+  if (error) {
+    return { error: "Failed to join the project" }
+  }
+
+  const result = data as { project_id?: string; error?: string }
+
+  if (result.error) {
+    return { error: result.error }
+  }
+
+  if (result.project_id) {
+    revalidatePath("/")
+    revalidatePath(`/projects/${result.project_id}`)
+    return { projectId: result.project_id }
+  }
+
+  return { error: "Something went wrong" }
+}
+
+export async function declineInvitation(
+  invitationId: string,
+): Promise<{ success: boolean; error?: string }> {
+  const { supabase, user } = await requireUser()
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("email")
+    .eq("id", user.id)
+    .single()
+
+  if (!profile?.email) {
+    return { success: false, error: "Could not verify your email address" }
+  }
+
+  const { data: invitation } = await supabase
+    .from("project_invitations")
+    .select("id, email, status")
+    .eq("id", invitationId)
+    .single()
+
+  if (!invitation) {
+    return { success: false, error: "Invitation not found" }
+  }
+
+  if (invitation.email !== profile.email.toLowerCase()) {
+    return { success: false, error: "This invitation belongs to a different user" }
+  }
+
+  if (invitation.status !== "pending") {
+    return { success: false, error: "This invitation is no longer pending" }
+  }
+
+  const { error } = await supabase
+    .from("project_invitations")
+    .update({ status: "declined" })
+    .eq("id", invitation.id)
+
+  if (error) {
+    return { success: false, error: "Failed to decline invitation" }
+  }
+
+  revalidatePath("/")
+  return { success: true }
 }

@@ -21,46 +21,32 @@ export type TaskWithProject = Tables<"tasks"> & {
   }[]
 }
 
-type ProjectWithOwnerAndTasks = Tables<"projects"> & {
-  owner: ProjectMember | null
-  tasks: {
-    task_assignees: {
-      profiles: ProjectMember | null
-    }[]
+type ProjectWithMemberJoin = Tables<"projects"> & {
+  project_members: {
+    profiles: ProjectMember | null
   }[]
 }
 
-function extractMembers(project: ProjectWithOwnerAndTasks): ProjectWithMembers {
-  const seen = new Set<string>()
+function extractMembers(project: ProjectWithMemberJoin): ProjectWithMembers {
   const members: ProjectMember[] = []
+  const seen = new Set<string>()
 
-  const owner = project.owner
-  if (owner) {
-    seen.add(owner.id)
-    members.push(owner)
-  }
-
-  for (const task of project.tasks ?? []) {
-    for (const assignee of task.task_assignees ?? []) {
-      const profile = assignee.profiles
-      if (profile && !seen.has(profile.id)) {
-        seen.add(profile.id)
-        members.push(profile)
-      }
+  for (const pm of project.project_members ?? []) {
+    const profile = pm.profiles
+    if (profile && !seen.has(profile.id)) {
+      seen.add(profile.id)
+      members.push(profile)
     }
   }
 
-  const { tasks: _tasks, owner: _owner, ...rest } = project
+  const { project_members: _pm, ...rest } = project
   return { ...rest, members }
 }
 
 const PROJECT_WITH_MEMBERS_QUERY = `
   *,
-  owner:profiles!projects_user_id_profiles_fkey(id, email, full_name, avatar_url),
-  tasks(
-    task_assignees(
-      profiles(id, email, full_name, avatar_url)
-    )
+  project_members(
+    profiles(id, email, full_name, avatar_url)
   )
 `
 

@@ -91,6 +91,8 @@ function LoginContent() {
     await sendOtp();
   }
 
+  const nextUrl = searchParams.get("next") ?? "/";
+
   const verifyOtpToken = useCallback(
     async (token: string) => {
       setLoading(true);
@@ -116,10 +118,10 @@ function LoginContent() {
         }
       }
 
-      router.push("/");
+      router.push(nextUrl);
       router.refresh();
     },
-    [email, router]
+    [email, router, nextUrl]
   );
 
   // Auto-submit OTP when all digits are entered
@@ -143,7 +145,7 @@ function LoginContent() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextUrl)}`,
       },
     });
     if (error) {
