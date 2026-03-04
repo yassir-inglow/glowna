@@ -238,7 +238,7 @@ export default function LoginPage() {
                 value={otp}
                 onChange={(value) => setOtp(value.replace(/\D/g, ""))}
                 maxLength={OTP_LENGTH}
-                pattern={/^[0-9]+$/}
+                pattern="^[0-9]+$"
                 autoFocus
                 containerClassName="w-full"
               >
