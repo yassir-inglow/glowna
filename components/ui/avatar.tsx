@@ -1,10 +1,23 @@
+"use client"
+
 import * as React from "react"
 import { Avatar as AvatarPrimitive } from "radix-ui"
+import Avvvatars from "avvvatars-react"
 
 import { cn } from "@/lib/utils"
 
 type AvatarStatus = "online" | "offline" | "busy" | "away"
 type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl"
+
+const AvatarContext = React.createContext<{ size?: AvatarSize }>({})
+
+const fallbackTextSize: Record<AvatarSize, string> = {
+  xs: "text-[11px]",
+  sm: "text-[13px]",
+  md: "text-text-sm",
+  lg: "text-text-md",
+  xl: "text-text-lg",
+}
 
 const statusStyles: Record<AvatarStatus, string> = {
   online: "bg-green-500",
@@ -21,6 +34,14 @@ const sizeStyles: Record<AvatarSize, string> = {
   xl: "size-12",  // 48px
 }
 
+const sizeInPx: Record<AvatarSize, number> = {
+  xs: 24,
+  sm: 32,
+  md: 36,
+  lg: 40,
+  xl: 48,
+}
+
 /**
  * Outer wrapper is a plain div (no overflow-hidden) so AvatarBadge can
  * peek outside the circle. The Radix Root inside handles clipping.
@@ -33,6 +54,7 @@ function Avatar({
   ...props
 }: React.ComponentProps<"div"> & { size?: AvatarSize; status?: AvatarStatus }) {
   return (
+    <AvatarContext.Provider value={{ size }}>
     <div
       data-slot="avatar"
       className={cn(
@@ -58,6 +80,7 @@ function Avatar({
         />
       )}
     </div>
+    </AvatarContext.Provider>
   )
 }
 
@@ -76,17 +99,23 @@ function AvatarImage({
 
 function AvatarFallback({
   className,
+  children,
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Fallback>) {
+  const { size } = React.useContext(AvatarContext)
+
   return (
     <AvatarPrimitive.Fallback
       data-slot="avatar-fallback"
       className={cn(
-        "flex h-full w-full items-center justify-center rounded-full bg-gray-cool-100 text-text-xs font-medium text-gray-cool-600",
+        "flex h-full w-full items-center justify-center rounded-full bg-gray-cool-100 font-medium text-gray-cool-500",
+        size ? fallbackTextSize[size] : "text-text-xs",
         className
       )}
       {...props}
-    />
+    >
+      {children}
+    </AvatarPrimitive.Fallback>
   )
 }
 
@@ -110,5 +139,33 @@ function AvatarGroup({
   )
 }
 
-export { Avatar, AvatarImage, AvatarFallback, AvatarGroup }
+/**
+ * Drop-in replacement for AvatarFallback powered by avvvatars.
+ * Pass `value` as a seed (email, full name, etc.) for deterministic color + character generation.
+ * Optionally pass `displayValue` to override the displayed text/initials.
+ */
+function AvatarAvvvatars({
+  value,
+  displayValue,
+  style = "character",
+}: {
+  value: string
+  displayValue?: string
+  style?: "character" | "shape"
+}) {
+  const { size } = React.useContext(AvatarContext)
+  const px = size ? sizeInPx[size] : 32
+
+  return (
+    <Avvvatars
+      value={value}
+      displayValue={displayValue}
+      size={px}
+      style={style}
+      radius={9999}
+    />
+  )
+}
+
+export { Avatar, AvatarImage, AvatarFallback, AvatarAvvvatars, AvatarGroup }
 export type { AvatarStatus, AvatarSize }

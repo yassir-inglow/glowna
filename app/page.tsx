@@ -1,10 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarAvvvatars } from "@/components/ui/avatar";
 import { ProjectsTasksView } from "@/components/dashboard/projects-tasks-view";
+import { getProjects, getAllTasks } from "@/lib/data";
 
-const IMG_BG_GLOW = "https://www.figma.com/api/mcp/asset/04f7ba68-3006-447c-b3bc-86bd5c1b817d";
 
 function BellIcon() {
   return (
@@ -54,6 +54,8 @@ export default async function HomePage() {
     redirect("/login");
   }
 
+  const [projects, tasks] = await Promise.all([getProjects(), getAllTasks()]);
+
   const displayName = user.email?.split("@")[0] ?? "Jane";
   const firstName = displayName.charAt(0).toUpperCase() + displayName.slice(1);
   const currentDate = new Intl.DateTimeFormat("en-US", {
@@ -64,11 +66,9 @@ export default async function HomePage() {
 
   return (
     <div className="relative h-screen overflow-hidden bg-bg-primary">
-      <img
-        src={IMG_BG_GLOW}
-        alt=""
+      <div
         aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-[-1000px] h-[2000px] w-[3000px] -translate-x-1/2 max-w-none"
+        className="pointer-events-none absolute left-1/2 top-[-1000px] h-[1500px] w-full -translate-x-1/2 rounded-full bg-gray-cool-200 blur-[900px]"
       />
 
       <div className="relative mx-auto flex h-full max-w-[1100px] flex-col items-center gap-32">
@@ -85,7 +85,7 @@ export default async function HomePage() {
               <BellIcon />
             </Button>
             <Avatar size="md" status="online" title={user.email ?? "Profile"}>
-              <AvatarFallback>{firstName.charAt(0).toUpperCase()}</AvatarFallback>
+              <AvatarAvvvatars value={user.email ?? firstName} />
             </Avatar>
           </div>
         </header>
@@ -98,7 +98,7 @@ export default async function HomePage() {
         </section>
 
         <main className="h-full w-full flex-1 rounded-t-[32px] rounded-b-none bg-bg-primary p-6">
-          <ProjectsTasksView />
+          <ProjectsTasksView projects={projects} tasks={tasks} />
         </main>
       </div>
     </div>

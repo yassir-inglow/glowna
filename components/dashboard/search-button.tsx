@@ -90,8 +90,8 @@ export function SearchButton() {
     <div
       ref={containerRef}
       className={cn(
-        "flex h-[38px] items-center overflow-hidden rounded-full border border-gray-cool-100 bg-alpha-900 transition-[width] duration-300 ease-in-out",
-        isOpen ? "w-[220px]" : "w-[38px]"
+        "flex h-[32px] items-center overflow-hidden rounded-full border border-gray-cool-100 bg-alpha-900 transition-[width] duration-300 ease-in-out",
+        isOpen ? "w-[220px]" : "w-[32px]"
       )}
     >
       {/* Search icon — doubles as trigger when closed */}
@@ -99,7 +99,7 @@ export function SearchButton() {
         type="button"
         onClick={isOpen ? undefined : open}
         className={cn(
-          "flex h-[38px] w-[38px] shrink-0 items-center justify-center text-gray-cool-500",
+          "flex h-[32px] w-[32px] shrink-0 items-center justify-center text-gray-cool-500",
           !isOpen && "hover:text-gray-cool-700"
         )}
         aria-label={isOpen ? undefined : "Search projects"}
@@ -130,7 +130,7 @@ export function SearchButton() {
         aria-label="Close search"
         tabIndex={isOpen ? 0 : -1}
         className={cn(
-          "mr-1 flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-full text-gray-cool-400 transition-opacity duration-200 hover:bg-alpha-800 hover:text-gray-cool-600",
+          "mr-1 flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full text-gray-cool-400 transition-opacity duration-200 hover:bg-alpha-800 hover:text-gray-cool-600",
           isOpen ? "opacity-100" : "pointer-events-none opacity-0"
         )}
       >

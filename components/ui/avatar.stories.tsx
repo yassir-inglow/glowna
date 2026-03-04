@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { Avatar, AvatarFallback, AvatarGroup, type AvatarSize } from "./avatar";
+import { Avatar, AvatarFallback, AvatarAvvvatars, AvatarGroup, type AvatarSize } from "./avatar";
 
 const meta: Meta<typeof Avatar> = {
   title: "Design System/Avatar",
@@ -13,11 +13,115 @@ const meta: Meta<typeof Avatar> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+// ─── Avvvatars ──────────────────────────────────────────────
+
+export const WithAvvvatars: Story = {
+  render: () => (
+    <div className="flex flex-col gap-6">
+      <p className="text-text-sm font-medium text-gray-cool-500">
+        Powered by avvvatars — unique color + character for every value.
+      </p>
+      <div className="flex flex-wrap gap-3">
+        {[
+          "Alice Brown",
+          "Charlie Davis",
+          "Eve Foster",
+          "George Hill",
+          "Iris Jones",
+          "tim@apple.com",
+          "hello@glowna.io",
+          "design@figma.com",
+        ].map((value) => (
+          <div key={value} className="flex flex-col items-center gap-1.5">
+            <Avatar size="lg">
+              <AvatarAvvvatars value={value} />
+            </Avatar>
+            <span className="max-w-[64px] truncate text-center text-text-xs text-gray-cool-400">
+              {value}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  ),
+};
+
+export const AvvvatarsStyles: Story = {
+  render: () => (
+    <div className="flex flex-col gap-8">
+      <div>
+        <p className="mb-3 text-text-sm font-medium text-gray-cool-500">Character style</p>
+        <div className="flex gap-3">
+          {["Alice Brown", "Charlie Davis", "Eve Foster", "George Hill"].map((v) => (
+            <Avatar key={v} size="lg">
+              <AvatarAvvvatars value={v} style="character" />
+            </Avatar>
+          ))}
+        </div>
+      </div>
+      <div>
+        <p className="mb-3 text-text-sm font-medium text-gray-cool-500">Shape style</p>
+        <div className="flex gap-3">
+          {["Alice Brown", "Charlie Davis", "Eve Foster", "George Hill"].map((v) => (
+            <Avatar key={v} size="lg">
+              <AvatarAvvvatars value={v} style="shape" />
+            </Avatar>
+          ))}
+        </div>
+      </div>
+    </div>
+  ),
+};
+
+export const AvvvatarsSizes: Story = {
+  render: () => (
+    <div className="flex items-end gap-6">
+      {(["xs", "sm", "md", "lg", "xl"] as AvatarSize[]).map((size) => (
+        <div key={size} className="flex flex-col items-center gap-2">
+          <Avatar size={size}>
+            <AvatarAvvvatars value="Alice Brown" />
+          </Avatar>
+          <span className="text-text-xs text-gray-cool-400">
+            {size} · {({ xs: 24, sm: 32, md: 36, lg: 40, xl: 48 }[size])}px
+          </span>
+        </div>
+      ))}
+    </div>
+  ),
+};
+
+export const AvvvatarsWithStatus: Story = {
+  render: () => (
+    <div className="flex items-center gap-4">
+      {(["online", "offline", "busy", "away"] as const).map((status) => (
+        <div key={status} className="flex flex-col items-center gap-2">
+          <Avatar size="lg" status={status}>
+            <AvatarAvvvatars value="Alice Brown" />
+          </Avatar>
+          <span className="capitalize text-text-xs text-gray-cool-400">{status}</span>
+        </div>
+      ))}
+    </div>
+  ),
+};
+
+export const AvvvatarsGroup: Story = {
+  render: () => (
+    <AvatarGroup>
+      {["Alice Brown", "Charlie Davis", "Eve Foster", "George Hill"].map((seed) => (
+        <Avatar key={seed} size="sm" className="ring-2 ring-white">
+          <AvatarAvvvatars value={seed} />
+        </Avatar>
+      ))}
+    </AvatarGroup>
+  ),
+};
+
 // ─── Single Avatar ──────────────────────────────────────────
 
 export const Default: Story = {
   render: () => (
-    <Avatar className="size-10">
+    <Avatar size="lg">
       <AvatarFallback>JD</AvatarFallback>
     </Avatar>
   ),

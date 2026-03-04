@@ -1,3 +1,7 @@
+"use client"
+
+import { useTransition } from "react"
+
 import {
   Square01Icon,
   Add01Icon,
@@ -10,6 +14,7 @@ import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarGroup, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { toggleTaskCompleted } from "@/app/actions"
 
 // ─── Task Row ─────────────────────────────────────────────────────────────────
 
@@ -19,7 +24,9 @@ export type TaskRowAvatar = {
 }
 
 export type TaskRowProps = {
+  id?: string
   title?: string
+  completed?: boolean
   showAddons?: boolean
   subTaskCurrent?: number
   subTaskTotal?: number
@@ -32,7 +39,9 @@ export type TaskRowProps = {
 }
 
 export function TaskRow({
+  id,
   title = "Project name",
+  completed = false,
   showAddons = true,
   subTaskCurrent = 1,
   subTaskTotal = 5,
@@ -43,18 +52,35 @@ export function TaskRow({
   avatars = [],
   selected = false,
 }: TaskRowProps) {
+  const [isPending, startTransition] = useTransition()
+
+  function handleCheckedChange(checked: boolean | "indeterminate") {
+    if (!id || checked === "indeterminate") return
+    startTransition(() => toggleTaskCompleted(id, checked))
+  }
+
   return (
     <div
       className={cn(
         "flex w-full items-center justify-between border-b border-gray-cool-100 px-4 py-4 transition-colors hover:bg-alpha-900",
         selected && "bg-alpha-900",
+        isPending && "opacity-60",
       )}
     >
       {/* Left: task info */}
       <div className="flex flex-col gap-0.5">
         <div className="flex items-center gap-2">
-          <Checkbox />
-          <span className="text-text-md font-medium text-gray-cool-700 whitespace-nowrap">
+          <Checkbox
+            checked={completed}
+            onCheckedChange={handleCheckedChange}
+            disabled={isPending}
+          />
+          <span
+            className={cn(
+              "text-text-md font-medium whitespace-nowrap transition-colors",
+              completed ? "text-gray-cool-300 line-through" : "text-gray-cool-700",
+            )}
+          >
             {title}
           </span>
         </div>

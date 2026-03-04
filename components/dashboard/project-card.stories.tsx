@@ -23,6 +23,7 @@ const meta: Meta<typeof ProjectCard> = {
     },
   },
   args: {
+    id: "story-1",
     title: "Name Project",
     description: "This is a description of the project",
     compactAvatars: false,
@@ -43,6 +44,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
   args: {
+    id: "story-default",
     title: "Name Project",
     description: "this is description on the project",
     compactAvatars: false,
@@ -90,10 +92,10 @@ export const DefaultAndHover: Story = {
   render: () => (
     <div className="flex flex-col gap-4">
       <p className="text-text-xs font-medium uppercase tracking-wide text-gray-cool-400">Default</p>
-      <ProjectCard title="Name Project" description="this is description on the project" />
+      <ProjectCard id="story-dh-1" title="Name Project" description="this is description on the project" />
       <p className="text-text-xs font-medium uppercase tracking-wide text-gray-cool-400">Hover (simulated)</p>
-      <div className="[&>article]:border-gray-cool-200 [&>article]:shadow-[0px_7px_8px_-4px_rgba(93,107,152,0.1)]">
-        <ProjectCard title="Name Project" description="this is description on the project" />
+      <div className="[&_article]:border-gray-cool-200 [&_article]:shadow-[0px_7px_8px_-4px_rgba(93,107,152,0.1)]">
+        <ProjectCard id="story-dh-2" title="Name Project" description="this is description on the project" />
       </div>
     </div>
   ),
@@ -103,6 +105,7 @@ export const DefaultAndHover: Story = {
 
 export const WithoutDescription: Story = {
   args: {
+    id: "story-no-desc",
     title: "Name Project",
     description: undefined,
     compactAvatars: false,
@@ -111,6 +114,7 @@ export const WithoutDescription: Story = {
 
 export const CompactAvatars: Story = {
   args: {
+    id: "story-compact",
     title: "Name Project",
     description: "Solo project",
     compactAvatars: true,
@@ -122,9 +126,9 @@ export const CompactAvatars: Story = {
 export const Grid: Story = {
   render: () => (
     <div className="grid grid-cols-3 gap-6" style={{ width: 1060 }}>
-      <ProjectCard title="Brand Redesign" description="Full visual identity refresh for Q3 launch" />
-      <ProjectCard title="Mobile App" compactAvatars />
-      <ProjectCard title="Dashboard v2" description="Analytics and reporting overhaul" />
+      <ProjectCard id="story-grid-1" title="Brand Redesign" description="Full visual identity refresh for Q3 launch" />
+      <ProjectCard id="story-grid-2" title="Mobile App" compactAvatars />
+      <ProjectCard id="story-grid-3" title="Dashboard v2" description="Analytics and reporting overhaul" />
     </div>
   ),
 };
