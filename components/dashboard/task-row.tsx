@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toggleTaskCompleted } from "@/app/actions"
+import { markMutation } from "@/hooks/mutation-tracker"
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
@@ -126,6 +127,7 @@ export function TaskRow({
 
     startTransition(async () => {
       setOptimisticCompleted(checked)
+      markMutation("tasks")
       await toggleTaskCompleted(id, checked)
     })
   }

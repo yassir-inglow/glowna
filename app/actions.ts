@@ -56,17 +56,30 @@ export async function signOut() {
 
 export async function toggleTaskCompleted(taskId: string, completed: boolean) {
   const { supabase, user } = await requireUser()
-  const task = await requireTaskAccess(supabase, user.id, taskId)
 
-  const { error } = await supabase
+  // Single query: update + return project_id. RLS ensures the user has access;
+  // manual ownership check is a fallback if no row is returned.
+  const { data, error } = await supabase
     .from("tasks")
     .update({ completed })
     .eq("id", taskId)
+    .select("project_id")
+    .maybeSingle()
 
   if (error) throw error
+  if (!data) {
+    // Verify the task exists before throwing — could be an RLS denial vs missing row
+    const { data: task } = await supabase
+      .from("tasks")
+      .select("project_id")
+      .eq("id", taskId)
+      .single()
+    if (!task) throw new Error("Task not found")
+    throw new Error("Access denied")
+  }
 
   revalidatePath("/")
-  revalidatePath(`/projects/${task.project_id}`)
+  revalidatePath(`/projects/${data.project_id}`)
 }
 
 export async function createTask(projectId: string, title: string) {
@@ -104,7 +117,18 @@ export async function createTask(projectId: string, title: string) {
 
 export async function deleteTask(taskId: string) {
   const { supabase, user } = await requireUser()
-  const task = await requireTaskAccess(supabase, user.id, taskId)
+
+  const { data: task } = await supabase
+    .from("tasks")
+    .select("user_id, project_id")
+    .eq("id", taskId)
+    .single()
+
+  if (!task) return
+
+  if (task.user_id !== user.id) {
+    await requireProjectAccess(supabase, user.id, task.project_id)
+  }
 
   const { error } = await supabase.from("tasks").delete().eq("id", taskId)
 

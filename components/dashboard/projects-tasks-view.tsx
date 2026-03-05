@@ -35,6 +35,10 @@ export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
   const [activeTab, setActiveTab] = React.useState<ProjectTabValue>("project")
   const [search, setSearch] = React.useState("")
   const [isCreating, setIsCreating] = React.useState(false)
+  const [optimisticTasks, removeOptimisticTask] = React.useOptimistic(
+    tasks,
+    (state, deletedId: string) => state.filter((t) => t.id !== deletedId),
+  )
 
   useRealtimeRefresh({ table: "tasks" })
 
@@ -70,14 +74,14 @@ export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
   const filteredTasks = React.useMemo(
     () =>
       q
-        ? tasks.filter(
+        ? optimisticTasks.filter(
             (t) =>
               t.title.toLowerCase().includes(q) ||
               t.projects?.title.toLowerCase().includes(q) ||
               t.label_text?.toLowerCase().includes(q),
           )
-        : tasks,
-    [tasks, q],
+        : optimisticTasks,
+    [optimisticTasks, q],
   )
 
   return (
@@ -174,7 +178,7 @@ export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <TaskContextMenu taskId={task.id} projectId={task.project_id}>
+                  <TaskContextMenu taskId={task.id} projectId={task.project_id} onDelete={() => removeOptimisticTask(task.id)}>
                     <TaskRow
                       id={task.id}
                       title={task.title}

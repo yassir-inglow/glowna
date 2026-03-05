@@ -13,6 +13,8 @@ import { Avatar, AvatarAvvvatars, AvatarGroup, AvatarImage } from "@/components/
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SearchButtonSkeleton } from "@/components/dashboard/search-button"
 import { createClient } from "@/lib/supabase/client"
+import { shouldSuppressRefresh, markMutation } from "@/hooks/mutation-tracker"
+import { toggleTaskCompleted } from "@/app/actions"
 import type { ProjectWithMembers, TaskWithProject } from "@/lib/data"
 
 type ProjectDrawerProps = {
@@ -35,6 +37,22 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
 
   const isOpen = !!project
 
+  const fetchProjectTasks = React.useCallback(async (pid: string) => {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from("tasks")
+      .select(
+        `*,
+        projects!inner(title),
+        task_assignees(profiles(id, full_name, email, avatar_url))`,
+      )
+      .eq("project_id", pid)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+    if (error) return null
+    return (data as TaskWithProject[]) ?? []
+  }, [])
+
   // Fetch tasks client-side when project changes
   React.useEffect(() => {
     if (!projectId) {
@@ -45,30 +63,15 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
     let cancelled = false
     setLoading(true)
 
-    async function fetchTasks() {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from("tasks")
-        .select(
-          `*,
-          projects!inner(title),
-          task_assignees(profiles(id, full_name, email, avatar_url))`,
-        )
-        .eq("project_id", projectId!)
-        .order("created_at", { ascending: false })
-        .order("id", { ascending: false })
-
-      if (!cancelled && !error) {
-        setTasks((data as TaskWithProject[]) ?? [])
-      }
+    fetchProjectTasks(projectId).then((result) => {
+      if (!cancelled && result) setTasks(result)
       if (!cancelled) setLoading(false)
-    }
+    })
 
-    fetchTasks()
     return () => {
       cancelled = true
     }
-  }, [projectId])
+  }, [projectId, fetchProjectTasks])
 
   // Realtime subscription: re-fetch tasks when they change
   React.useEffect(() => {
@@ -88,24 +91,14 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
           filter: `project_id=eq.${projectId}`,
         },
         () => {
-          // Debounce re-fetch
+          if (shouldSuppressRefresh("tasks")) return
+
           if (timeout) clearTimeout(timeout)
           timeout = setTimeout(async () => {
-            const { data, error } = await supabase
-              .from("tasks")
-              .select(
-                `*,
-                projects!inner(title),
-                task_assignees(profiles(id, full_name, email, avatar_url))`,
-              )
-              .eq("project_id", projectId!)
-              .order("created_at", { ascending: false })
-              .order("id", { ascending: false })
-
-            if (!error) {
-              setTasks((data as TaskWithProject[]) ?? [])
-            }
-          }, 300)
+            if (shouldSuppressRefresh("tasks")) return
+            const result = await fetchProjectTasks(projectId!)
+            if (result) setTasks(result)
+          }, 500)
         },
       )
       .subscribe()
@@ -114,7 +107,19 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
       if (timeout) clearTimeout(timeout)
       supabase.removeChannel(channel)
     }
-  }, [projectId])
+  }, [projectId, fetchProjectTasks])
+
+  const handleTaskToggle = React.useCallback(async (taskId: string, completed: boolean) => {
+    setTasks((prev) => prev?.map((t) => (t.id === taskId ? { ...t, completed } : t)) ?? null)
+    markMutation("tasks")
+    await toggleTaskCompleted(taskId, completed)
+  }, [])
+
+  const handleTaskCreated = React.useCallback(async () => {
+    if (!projectId) return
+    const result = await fetchProjectTasks(projectId)
+    if (result) setTasks(result)
+  }, [projectId, fetchProjectTasks])
 
   function handleClose() {
     const params = new URLSearchParams(searchParams.toString())
@@ -132,7 +137,14 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
       <DrawerContent open={isOpen}>
         <div className="mx-auto w-full max-w-[1100px] flex-1 overflow-y-auto p-6 scrollbar-hidden">
           {project && tasks !== null && !loading ? (
-            <ProjectDetail project={project} tasks={tasks} />
+            <ProjectDetail
+              project={project}
+              tasks={tasks}
+              onDeleteTask={(taskId) => setTasks((prev) => prev?.filter((t) => t.id !== taskId) ?? null)}
+              onTaskToggle={handleTaskToggle}
+              onTaskCreated={handleTaskCreated}
+              enableRealtimeRefresh={false}
+            />
           ) : project ? (
             <DrawerSkeleton project={project} />
           ) : null}

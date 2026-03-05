@@ -5,14 +5,16 @@ import { Folder01Icon } from "@hugeicons/core-free-icons"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { createTask } from "@/app/actions"
+import { markMutation } from "@/hooks/mutation-tracker"
 
 type NewTaskRowProps = {
   projectId?: string
   projects?: { id: string; title: string }[]
   onDone: () => void
+  onCreated?: () => void
 }
 
-export function NewTaskRow({ projectId, projects, onDone }: NewTaskRowProps) {
+export function NewTaskRow({ projectId, projects, onDone, onCreated }: NewTaskRowProps) {
   const inputRef = React.useRef<HTMLInputElement>(null)
   const [selectedProjectId, setSelectedProjectId] = React.useState(
     projectId ?? projects?.[0]?.id ?? "",
@@ -33,9 +35,10 @@ export function NewTaskRow({ projectId, projects, onDone }: NewTaskRowProps) {
     }
     submittedRef.current = true
     setSaving(title)
+    markMutation("tasks")
 
     createTask(selectedProjectId, title)
-      .then(() => onDone())
+      .then(() => { onCreated?.(); onDone() })
       .catch(() => onDone())
   }
 

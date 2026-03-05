@@ -16,16 +16,19 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
 import { deleteTask, duplicateTask } from "@/app/actions"
+import { markMutation } from "@/hooks/mutation-tracker"
 
 type TaskContextMenuProps = {
   taskId: string
   projectId: string
+  onDelete?: () => void
   children: React.ReactNode
 }
 
 export function TaskContextMenu({
   taskId,
   projectId,
+  onDelete,
   children,
 }: TaskContextMenuProps) {
   const [isPending, startTransition] = useTransition()
@@ -36,11 +39,16 @@ export function TaskContextMenu({
   }
 
   function handleDuplicate() {
+    markMutation("tasks")
     startTransition(() => duplicateTask(taskId))
   }
 
   function handleDelete() {
-    startTransition(() => deleteTask(taskId))
+    markMutation("tasks")
+    startTransition(async () => {
+      onDelete?.()
+      await deleteTask(taskId)
+    })
   }
 
   return (

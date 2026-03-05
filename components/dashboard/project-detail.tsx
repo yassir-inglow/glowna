@@ -24,13 +24,24 @@ function getInitials(name: string | null | undefined): string {
 type ProjectDetailProps = {
   project: ProjectWithMembers
   tasks: TaskWithProject[]
+  onDeleteTask?: (taskId: string) => void
+  /** Called when a task's completed state is toggled (for local-state sync in the drawer). */
+  onTaskToggle?: (taskId: string, completed: boolean) => Promise<void>
+  /** Called after a new task is created (so the parent can re-fetch). */
+  onTaskCreated?: () => void
+  /** Disable the built-in Realtime refresh (e.g. when a parent already subscribes). */
+  enableRealtimeRefresh?: boolean
 }
 
-export function ProjectDetail({ project, tasks }: ProjectDetailProps) {
+export function ProjectDetail({ project, tasks, onDeleteTask, onTaskToggle, onTaskCreated, enableRealtimeRefresh = true }: ProjectDetailProps) {
   const [activeView, setActiveView] = React.useState("overview")
   const [isCreating, setIsCreating] = React.useState(false)
+  const [optimisticTasks, removeOptimisticTask] = React.useOptimistic(
+    tasks,
+    (state, deletedId: string) => state.filter((t) => t.id !== deletedId),
+  )
 
-  useRealtimeRefresh({ table: "tasks", filter: `project_id=eq.${project.id}` })
+  useRealtimeRefresh({ table: "tasks", filter: `project_id=eq.${project.id}`, enabled: enableRealtimeRefresh })
 
   return (
     <div className="space-y-6">
@@ -96,14 +107,16 @@ export function ProjectDetail({ project, tasks }: ProjectDetailProps) {
           <NewTaskRow
             projectId={project.id}
             onDone={() => setIsCreating(false)}
+            onCreated={onTaskCreated}
           />
         )}
-        {tasks.map((task) => (
-          <TaskContextMenu key={task.id} taskId={task.id} projectId={task.project_id}>
+        {optimisticTasks.map((task) => (
+          <TaskContextMenu key={task.id} taskId={task.id} projectId={task.project_id} onDelete={() => { removeOptimisticTask(task.id); onDeleteTask?.(task.id) }}>
             <TaskRow
               id={task.id}
               title={task.title}
               completed={task.completed}
+              onCompletedChange={onTaskToggle ? (checked) => onTaskToggle(task.id, checked) : undefined}
               showAddons={!!(task.sub_task_total || task.add_text || task.label_text || task.comment_count)}
               subTaskCurrent={task.sub_task_current}
               subTaskTotal={task.sub_task_total}

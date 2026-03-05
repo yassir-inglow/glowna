@@ -3,19 +3,23 @@
 import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import { shouldSuppressRefresh } from "@/hooks/mutation-tracker"
 
 type Options = {
   table: string
   filter?: string
-  /** Debounce window in ms (default 300) */
+  /** Debounce window in ms (default 500) */
   debounce?: number
+  enabled?: boolean
 }
 
-export function useRealtimeRefresh({ table, filter, debounce = 300 }: Options) {
+export function useRealtimeRefresh({ table, filter, debounce = 500, enabled = true }: Options) {
   const router = useRouter()
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
+    if (!enabled) return
+
     const supabase = createClient()
 
     const channelName = filter
@@ -37,8 +41,11 @@ export function useRealtimeRefresh({ table, filter, debounce = 300 }: Options) {
         "postgres_changes" as any,
         subscriptionConfig,
         () => {
+          if (shouldSuppressRefresh(table)) return
+
           if (timeoutRef.current) clearTimeout(timeoutRef.current)
           timeoutRef.current = setTimeout(() => {
+            if (shouldSuppressRefresh(table)) return
             router.refresh()
           }, debounce)
         }
@@ -49,5 +56,5 @@ export function useRealtimeRefresh({ table, filter, debounce = 300 }: Options) {
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
       supabase.removeChannel(channel)
     }
-  }, [table, filter, debounce, router])
+  }, [table, filter, debounce, enabled, router])
 }

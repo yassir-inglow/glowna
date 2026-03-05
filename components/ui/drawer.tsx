@@ -50,6 +50,14 @@ function DrawerContent({
   children: React.ReactNode
   open?: boolean
 }) {
+  const isFirstRender = React.useRef(true)
+
+  React.useEffect(() => {
+    isFirstRender.current = false
+  }, [])
+
+  const skipAnimation = isFirstRender.current && open
+
   return (
     <DialogPrimitive.Portal forceMount>
       <AnimatePresence>
@@ -71,7 +79,7 @@ function DrawerContent({
               onEscapeKeyDown={(e) => e.preventDefault()}
             >
               <motion.div
-                initial={{ opacity: 0, y: "15%" }}
+                initial={skipAnimation ? false : { opacity: 0, y: "15%" }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: "15%" }}
                 transition={{ type: "spring", damping: 30, stiffness: 300 }}
