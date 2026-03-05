@@ -85,18 +85,21 @@ export function SearchButton({ value, onValueChange, placeholder = "Search…" }
     return () => document.removeEventListener("keydown", handleKey)
   }, [isOpen])
 
-  // Close on click outside
+  // Close on click outside only if query is empty
   React.useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        close()
+        const current = controlled ? value : internalQuery
+        if (!current?.trim()) {
+          close()
+        }
       }
     }
     if (isOpen) {
       document.addEventListener("mousedown", handleClickOutside)
     }
     return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [isOpen])
+  }, [isOpen, value, internalQuery, controlled])
 
   return (
     <div

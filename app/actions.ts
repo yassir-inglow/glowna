@@ -81,7 +81,7 @@ export async function createTask(projectId: string, title: string) {
       completed: false,
       user_id: user.id,
     })
-    .select("id")
+    .select("id, created_at")
     .single()
 
   if (error) throw error
@@ -93,6 +93,13 @@ export async function createTask(projectId: string, title: string) {
 
   revalidatePath(`/projects/${projectId}`)
   revalidatePath("/")
+
+  return {
+    id: newTask.id,
+    createdAt: newTask.created_at,
+    projectId,
+    title,
+  }
 }
 
 export async function deleteTask(taskId: string) {

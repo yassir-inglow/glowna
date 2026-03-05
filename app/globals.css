@@ -222,6 +222,21 @@ body {
   display: none;
 }
 
+@keyframes task-save-progress {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes checkbox-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @keyframes ctx-menu-in {
   from {
     opacity: 0;

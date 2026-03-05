@@ -52,5 +52,5 @@ export function UserProvider({
     [id, email, fullName, avatarUrl, displayName, firstName],
   )
 
-  return <UserContext value={value}>{children}</UserContext>
+  return <UserContext.Provider value={value}>{children}</UserContext.Provider>
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useTransition } from "react"
+import { useState, useEffect, useOptimistic, useRef, useTransition } from "react"
 
 import {
   Square01Icon,
@@ -28,6 +28,7 @@ export type TaskRowProps = {
   id?: string
   title?: string
   completed?: boolean
+  onCompletedChange?: (completed: boolean) => void | Promise<void>
   showAddons?: boolean
   subTaskCurrent?: number
   subTaskTotal?: number
@@ -43,6 +44,7 @@ export function TaskRow({
   id,
   title = "Project name",
   completed = false,
+  onCompletedChange,
   showAddons = true,
   subTaskCurrent = 1,
   subTaskTotal = 5,
@@ -54,6 +56,7 @@ export function TaskRow({
   selected = false,
 }: TaskRowProps) {
   const [isPending, startTransition] = useTransition()
+  const [optimisticCompleted, setOptimisticCompleted] = useOptimistic(completed)
   const [contextOpen, setContextOpen] = useState(false)
   const rowRef = useRef<HTMLDivElement>(null)
 
@@ -78,8 +81,27 @@ export function TaskRow({
   }, [contextOpen])
 
   function handleCheckedChange(checked: boolean | "indeterminate") {
-    if (!id || checked === "indeterminate") return
-    startTransition(() => toggleTaskCompleted(id, checked))
+    if (checked === "indeterminate") return
+
+    if (onCompletedChange) {
+      startTransition(async () => {
+        setOptimisticCompleted(checked)
+        await onCompletedChange(checked)
+      })
+      return
+    }
+
+    if (!id) {
+      startTransition(() => {
+        setOptimisticCompleted(checked)
+      })
+      return
+    }
+
+    startTransition(async () => {
+      setOptimisticCompleted(checked)
+      await toggleTaskCompleted(id, checked)
+    })
   }
 
   return (
@@ -96,15 +118,12 @@ export function TaskRow({
       <div className="flex flex-col gap-0.5">
         <div className="flex items-center gap-2">
           <Checkbox
-            checked={completed}
+            checked={optimisticCompleted}
             onCheckedChange={handleCheckedChange}
-            disabled={isPending}
+            loading={isPending}
           />
           <span
-            className={cn(
-              "text-text-md font-medium whitespace-nowrap transition-colors",
-              completed ? "text-gray-cool-300 line-through" : "text-gray-cool-700",
-            )}
+            className="text-text-md font-medium whitespace-nowrap text-gray-cool-700"
           >
             {title}
           </span>

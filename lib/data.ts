@@ -87,6 +87,7 @@ export async function getTasksByProjectId(projectId: string) {
     `)
     .eq("project_id", projectId)
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
 
   if (error) throw error
   return data as TaskWithProject[]
@@ -102,6 +103,7 @@ export async function getAllTasks() {
       task_assignees(profiles(id, full_name, email, avatar_url))
     `)
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
 
   if (error) throw error
   return data as TaskWithProject[]

@@ -111,6 +111,12 @@ export function ProjectDetail({ project, tasks }: ProjectDetailProps) {
       </div>
 
       <div className="overflow-hidden rounded-xl border border-gray-cool-100">
+        {isCreating && (
+          <NewTaskRow
+            projectId={project.id}
+            onDone={() => setIsCreating(false)}
+          />
+        )}
         {tasks.map((task) => (
           <TaskContextMenu key={task.id} taskId={task.id} projectId={task.project_id}>
             <TaskRow
@@ -131,12 +137,6 @@ export function ProjectDetail({ project, tasks }: ProjectDetailProps) {
             />
           </TaskContextMenu>
         ))}
-        {isCreating && (
-          <NewTaskRow
-            projectId={project.id}
-            onDone={() => setIsCreating(false)}
-          />
-        )}
       </div>
     </div>
   )

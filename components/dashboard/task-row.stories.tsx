@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { TaskRow } from "./task-row";
 
@@ -9,6 +10,19 @@ const sampleAvatars = [
 const meta: Meta<typeof TaskRow> = {
   title: "Dashboard/TaskRow",
   component: TaskRow,
+  render: function Render(args) {
+    const [checked, setChecked] = useState(!!args.completed);
+
+    return (
+      <TaskRow
+        {...args}
+        completed={checked}
+        onCompletedChange={async (next) => {
+          setChecked(next);
+        }}
+      />
+    );
+  },
   parameters: {
     layout: "centered",
   },
@@ -17,6 +31,17 @@ const meta: Meta<typeof TaskRow> = {
     title: {
       control: "text",
       description: "Task title",
+    },
+    id: {
+      control: "text",
+      description: "Task id used by server action",
+    },
+    completed: {
+      control: "boolean",
+      description: "Completed task state",
+    },
+    onCompletedChange: {
+      table: { disable: true },
     },
     showAddons: {
       control: "boolean",
@@ -52,7 +77,10 @@ const meta: Meta<typeof TaskRow> = {
     },
   },
   args: {
+    id: undefined,
     title: "Project name",
+    completed: false,
+    onCompletedChange: async () => {},
     showAddons: true,
     subTaskCurrent: 1,
     subTaskTotal: 5,
@@ -82,6 +110,12 @@ export const Default: Story = {};
 export const Selected: Story = {
   args: {
     selected: true,
+  },
+};
+
+export const Completed: Story = {
+  args: {
+    completed: true,
   },
 };
 
@@ -121,6 +155,7 @@ export const List: Story = {
       <div className="w-[1052px] rounded-xl border border-gray-cool-100 overflow-hidden">
         <TaskRow
           title="Redesign landing page"
+          onCompletedChange={async () => {}}
           subTaskCurrent={3}
           subTaskTotal={5}
           addText="Text"
@@ -131,6 +166,8 @@ export const List: Story = {
         />
         <TaskRow
           title="Fix authentication bug"
+          completed
+          onCompletedChange={async () => {}}
           subTaskCurrent={0}
           subTaskTotal={3}
           addText="Add"
@@ -141,6 +178,7 @@ export const List: Story = {
         />
         <TaskRow
           title="Write release notes"
+          onCompletedChange={async () => {}}
           subTaskCurrent={2}
           subTaskTotal={2}
           addText="Text"
@@ -152,6 +190,7 @@ export const List: Story = {
         />
         <TaskRow
           title="Update dependencies"
+          onCompletedChange={async () => {}}
           showAddons={false}
           projectName="Platform"
           avatars={[{ fallback: "B" }]}

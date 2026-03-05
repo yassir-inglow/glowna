@@ -2,10 +2,16 @@
 
 import * as React from "react"
 import { Checkbox as CheckboxPrimitive } from "radix-ui"
+import { motion } from "motion/react"
 
 import { cn } from "@/lib/utils"
+import { useSound } from "@/hooks/use-sound"
+import { glitch004Sound } from "@/lib/glitch-004"
 
-function CheckIcon() {
+function CheckIcon({
+  durationMs = 320,
+  animate = true,
+}: { durationMs?: number; animate?: boolean }) {
   return (
     <svg
       aria-hidden="true"
@@ -21,17 +27,19 @@ function CheckIcon() {
         strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeDasharray="24"
-        strokeDashoffset="24"
+        strokeDasharray={animate ? "24" : undefined}
+        strokeDashoffset={animate ? "24" : undefined}
       >
-        <animate
-          attributeName="stroke-dashoffset"
-          from="24"
-          to="0"
-          dur="180ms"
-          fill="freeze"
-          begin="0s"
-        />
+        {animate && (
+          <animate
+            attributeName="stroke-dashoffset"
+            from="24"
+            to="0"
+            dur={`${durationMs}ms`}
+            fill="freeze"
+            begin="0s"
+          />
+        )}
       </path>
     </svg>
   )
@@ -72,12 +80,51 @@ function DashIcon() {
  *   Accept terms
  * </label>
  */
+function LoadingCheckPath() {
+  return (
+    <motion.span
+      aria-hidden="true"
+      className="flex size-full items-center justify-center"
+      initial={{ opacity: 1 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0 }}
+    >
+      <CheckIcon durationMs={1400} />
+    </motion.span>
+  )
+}
+
 function Checkbox({
   className,
+  loading = false,
+  checked,
+  onCheckedChange,
   ...props
-}: React.ComponentProps<typeof CheckboxPrimitive.Root>) {
+}: React.ComponentProps<typeof CheckboxPrimitive.Root> & { loading?: boolean }) {
+  const [playCheck] = useSound(glitch004Sound)
+  const isLoadingCheck = loading && checked === true
+  const wasLoadingCheckRef = React.useRef(false)
+  const [suppressCheckedAnimation, setSuppressCheckedAnimation] = React.useState(false)
+
+  React.useEffect(() => {
+    if (wasLoadingCheckRef.current && !isLoadingCheck && checked === true) {
+      setSuppressCheckedAnimation(true)
+    }
+
+    if (checked !== true) {
+      setSuppressCheckedAnimation(false)
+    }
+
+    wasLoadingCheckRef.current = isLoadingCheck
+  }, [checked, isLoadingCheck])
+
   return (
     <CheckboxPrimitive.Root
+      onCheckedChange={(checked) => {
+        if (loading) return
+        if (checked === true) playCheck()
+        onCheckedChange?.(checked)
+      }}
       data-slot="checkbox"
       className={cn(
         // Base
@@ -88,7 +135,7 @@ function Checkbox({
         "focus-visible:ring-2 focus-visible:ring-brand-500/50 focus-visible:ring-offset-2",
         // Disabled
         "disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50",
-        // Unchecked
+        // Unchecked base
         "border border-gray-cool-200 bg-gray-cool-100",
         // Checked
         "data-[state=checked]:border-transparent data-[state=checked]:bg-brand-500",
@@ -96,30 +143,30 @@ function Checkbox({
         "data-[state=indeterminate]:border-transparent data-[state=indeterminate]:bg-brand-50",
         className,
       )}
+      checked={checked}
       {...props}
     >
-      {/*
-       * Indicator only mounts when state is "checked" or "indeterminate".
-       * It receives data-state from Radix, so the group-data-[state=*] variants
-       * below use that to swap between the two icons.
-       */}
-      <CheckboxPrimitive.Indicator
-        className={cn(
-          "group flex size-full items-center justify-center",
-          "data-[state=checked]:animate-in data-[state=checked]:zoom-in-50 data-[state=checked]:fade-in-0",
-          "data-[state=indeterminate]:animate-in data-[state=indeterminate]:zoom-in-75 data-[state=indeterminate]:fade-in-0",
-          "motion-reduce:animate-none",
-        )}
-      >
-        {/* Checkmark — visible when checked, hidden when indeterminate */}
-        <span className="group-data-[state=indeterminate]:hidden">
-          <CheckIcon />
-        </span>
-        {/* Dash — visible when indeterminate only */}
-        <span className="hidden group-data-[state=indeterminate]:inline-flex">
-          <DashIcon />
-        </span>
-      </CheckboxPrimitive.Indicator>
+      {isLoadingCheck ? (
+        <CheckboxPrimitive.Indicator className="group flex size-full items-center justify-center">
+          <LoadingCheckPath />
+        </CheckboxPrimitive.Indicator>
+      ) : (
+        <CheckboxPrimitive.Indicator
+          className={cn(
+            "group flex size-full items-center justify-center",
+            "data-[state=checked]:animate-in data-[state=checked]:zoom-in-50 data-[state=checked]:fade-in-0",
+            "data-[state=indeterminate]:animate-in data-[state=indeterminate]:zoom-in-75 data-[state=indeterminate]:fade-in-0",
+            "motion-reduce:animate-none",
+          )}
+        >
+          <span className="group-data-[state=indeterminate]:hidden">
+            <CheckIcon animate={!suppressCheckedAnimation} />
+          </span>
+          <span className="hidden group-data-[state=indeterminate]:inline-flex">
+            <DashIcon />
+          </span>
+        </CheckboxPrimitive.Indicator>
+      )}
     </CheckboxPrimitive.Root>
   )
 }
