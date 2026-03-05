@@ -110,7 +110,7 @@ export function ProjectDetail({ project, tasks }: ProjectDetailProps) {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-gray-cool-100">
+      <div className="overflow-hidden">
         {isCreating && (
           <NewTaskRow
             projectId={project.id}

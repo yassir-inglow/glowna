@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { ProjectCard } from "./project-card";
+import { ProjectCard, ProjectCardSkeleton } from "./project-card";
 
 const meta: Meta<typeof ProjectCard> = {
   title: "Dashboard/ProjectCard",
@@ -123,6 +123,20 @@ export const CompactAvatars: Story = {
     compactAvatars: true,
     ownerId: "00000000-0000-0000-0000-000000000001",
   },
+};
+
+// ─── Skeleton ───────────────────────────────────────────────
+
+export const Skeleton: Story = {
+  decorators: [
+    () => (
+      <div className="grid grid-cols-3 gap-6" style={{ width: 1060 }}>
+        <ProjectCardSkeleton />
+        <ProjectCardSkeleton />
+        <ProjectCardSkeleton />
+      </div>
+    ),
+  ],
 };
 
 // ─── Gallery ───────────────────────────────────────────────

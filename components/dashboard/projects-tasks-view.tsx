@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { AnimatePresence, motion } from "motion/react"
 import { Add01Icon } from "@hugeicons/core-free-icons"
 
@@ -9,6 +10,7 @@ import { ProjectCard } from "@/components/dashboard/project-card"
 import { NewProjectCard } from "@/components/dashboard/new-project-card"
 import { NewTaskRow } from "@/components/dashboard/new-task-row"
 import { ProjectTabs, type ProjectTabValue } from "@/components/dashboard/project-tabs"
+import { ProjectDrawer } from "@/components/dashboard/project-drawer"
 import { SearchButton } from "@/components/dashboard/search-button"
 import { TaskRow } from "@/components/dashboard/task-row"
 import { TaskContextMenu } from "@/components/dashboard/task-context-menu"
@@ -28,11 +30,22 @@ type ProjectsTasksViewProps = {
 }
 
 export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = React.useState<ProjectTabValue>("project")
   const [search, setSearch] = React.useState("")
   const [isCreating, setIsCreating] = React.useState(false)
 
   useRealtimeRefresh({ table: "tasks" })
+
+  const handleProjectSelect = React.useCallback(
+    (projectId: string) => {
+      const params = new URLSearchParams(searchParams.toString())
+      params.set("project", projectId)
+      router.push(`/?${params.toString()}`, { scroll: false })
+    },
+    [router, searchParams],
+  )
 
   const handleTabChange = (tab: ProjectTabValue) => {
     setActiveTab(tab)
@@ -130,6 +143,7 @@ export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
                     compactAvatars={project.compact_avatars}
                     members={project.members}
                     ownerId={project.user_id}
+                    onSelect={handleProjectSelect}
                   />
                 </motion.div>
               ))}
@@ -185,6 +199,8 @@ export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ProjectDrawer projects={projects} />
     </div>
   )
 }

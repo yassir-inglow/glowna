@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { TaskRow } from "./task-row";
+import { TaskRow, TaskRowSkeleton } from "./task-row";
 
 const sampleAvatars = [
   { fallback: "A" },
@@ -145,6 +145,20 @@ export const Minimal: Story = {
     projectName: undefined,
     avatars: [],
   },
+};
+
+// ─── Skeleton ───────────────────────────────────────────────
+
+export const Skeleton: Story = {
+  decorators: [
+    () => (
+      <div className="w-[1052px] rounded-xl border border-gray-cool-100 overflow-hidden">
+        <TaskRowSkeleton />
+        <TaskRowSkeleton />
+        <TaskRowSkeleton />
+      </div>
+    ),
+  ],
 };
 
 // ─── Gallery ───────────────────────────────────────────────

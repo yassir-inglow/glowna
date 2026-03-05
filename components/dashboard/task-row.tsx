@@ -14,7 +14,33 @@ import { cn } from "@/lib/utils"
 import { Avatar, AvatarAvvvatars, AvatarGroup, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Skeleton } from "@/components/ui/skeleton"
 import { toggleTaskCompleted } from "@/app/actions"
+
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+
+export function TaskRowSkeleton() {
+  return (
+    <div className="flex w-full items-center justify-between border-b border-gray-cool-100 px-4 py-4">
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-2">
+          <Skeleton className="size-[18px] rounded-[5px]" />
+          <Skeleton className="h-4 w-40 rounded-md" />
+        </div>
+        <div className="flex items-center gap-1 pl-[22px]">
+          <Skeleton className="h-4 w-12 rounded-full" />
+          <Skeleton className="h-4 w-14 rounded-full" />
+          <Skeleton className="h-4 w-14 rounded-full" />
+          <Skeleton className="h-4 w-8 rounded-full" />
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-5 w-24 rounded-full" />
+        <Skeleton className="size-6 rounded-full" />
+      </div>
+    </div>
+  )
+}
 
 // ─── Task Row ─────────────────────────────────────────────────────────────────
 
