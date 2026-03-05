@@ -11,7 +11,7 @@ import {
 } from "@hugeicons/core-free-icons"
 
 import { cn } from "@/lib/utils"
-import { Avatar, AvatarAvvvatars, AvatarGroup, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarAvvvatars, AvatarGroup, AvatarImage, AvatarSkeleton } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -36,7 +36,7 @@ export function TaskRowSkeleton() {
       </div>
       <div className="flex items-center gap-2">
         <Skeleton className="h-5 w-24 rounded-full" />
-        <Skeleton className="size-6 rounded-full" />
+        <AvatarSkeleton size="xs" />
       </div>
     </div>
   )

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { Avatar, AvatarFallback, AvatarAvvvatars, AvatarGroup, AvatarAddButton, type AvatarSize } from "./avatar";
+import { Avatar, AvatarFallback, AvatarAvvvatars, AvatarGroup, AvatarAddButton, AvatarSkeleton, AvatarGroupSkeleton, type AvatarSize } from "./avatar";
 
 const meta: Meta<typeof Avatar> = {
   title: "Design System/Avatar",
@@ -304,6 +304,46 @@ export const GroupWithAddButton: Story = {
           ))}
           <AvatarAddButton size="sm" className="ring-2 ring-white" />
         </AvatarGroup>
+      </div>
+    </div>
+  ),
+};
+
+// ─── Skeleton ────────────────────────────────────────────────
+
+export const SkeletonSizes: Story = {
+  render: () => (
+    <div className="flex items-end gap-6">
+      {(["xs", "sm", "md", "lg", "xl"] as AvatarSize[]).map((size) => (
+        <div key={size} className="flex flex-col items-center gap-2">
+          <AvatarSkeleton size={size} />
+          <span className="text-text-xs text-gray-cool-400">
+            {size} · {({ xs: 24, sm: 32, md: 36, lg: 40, xl: 48 }[size])}px
+          </span>
+        </div>
+      ))}
+    </div>
+  ),
+};
+
+export const SkeletonGroup: Story = {
+  render: () => (
+    <div className="flex flex-col gap-6">
+      <div>
+        <p className="mb-3 text-text-sm font-medium text-gray-cool-500">2 avatars — xs</p>
+        <AvatarGroupSkeleton count={2} size="xs" />
+      </div>
+      <div>
+        <p className="mb-3 text-text-sm font-medium text-gray-cool-500">3 avatars — xs</p>
+        <AvatarGroupSkeleton count={3} size="xs" />
+      </div>
+      <div>
+        <p className="mb-3 text-text-sm font-medium text-gray-cool-500">3 avatars — sm</p>
+        <AvatarGroupSkeleton count={3} size="sm" />
+      </div>
+      <div>
+        <p className="mb-3 text-text-sm font-medium text-gray-cool-500">4 avatars — md</p>
+        <AvatarGroupSkeleton count={4} size="md" />
       </div>
     </div>
   ),

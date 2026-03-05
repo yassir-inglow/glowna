@@ -172,7 +172,7 @@ export function NotificationPopover({
   return (
     <PopoverPrimitive.Root open={open} onOpenChange={handleOpenChange}>
       <PopoverPrimitive.Trigger asChild>
-        <div className="relative">
+        <div className="relative" suppressHydrationWarning>
           {children}
           {!open && count > 0 && (
             <span className="absolute -right-0.5 -top-0.5 flex size-[10px] items-center justify-center rounded-full bg-brand-500 ring-2 ring-white" />

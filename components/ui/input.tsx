@@ -82,5 +82,49 @@ function Input({
   )
 }
 
-export { Input, inputVariants }
-export type { InputProps }
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+
+type InputSkeletonProps = {
+  size?: "sm" | "md" | "lg"
+  withIcon?: boolean
+  className?: string
+  width?: string
+}
+
+function InputSkeleton({
+  size = "lg",
+  withIcon = false,
+  className,
+  width = "w-full",
+}: InputSkeletonProps) {
+  const heightMap: Record<string, string> = {
+    sm: "h-[30px]",
+    md: "h-[36px]",
+    lg: "h-[44px]",
+  }
+
+  return (
+    <div
+      data-slot="input-skeleton"
+      className={cn(
+        "animate-pulse rounded-full bg-gray-cool-100",
+        heightMap[size],
+        width,
+        className,
+      )}
+    >
+      {withIcon && (
+        <div className="flex h-full items-center gap-[4px] px-[10px]">
+          <div className={cn(
+            "shrink-0 rounded-full bg-gray-cool-200",
+            size === "sm" ? "size-4" : size === "md" ? "size-5" : "size-6",
+          )} />
+          <div className="h-3.5 flex-1 rounded-full bg-gray-cool-200" />
+        </div>
+      )}
+    </div>
+  )
+}
+
+export { Input, inputVariants, InputSkeleton }
+export type { InputProps, InputSkeletonProps }

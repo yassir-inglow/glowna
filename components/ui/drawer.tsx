@@ -71,11 +71,17 @@ function DrawerContent({
               onEscapeKeyDown={(e) => e.preventDefault()}
             >
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2, ease: "easeOut" }}
+                initial={{ opacity: 0, y: "15%" }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: "15%" }}
+                transition={{ type: "spring", damping: 30, stiffness: 300 }}
               >
+                <DialogPrimitive.Title className="sr-only">
+                  Project details
+                </DialogPrimitive.Title>
+                <DialogPrimitive.Description className="sr-only">
+                  View and manage project tasks
+                </DialogPrimitive.Description>
                 <div className="absolute left-1/2 -top-3 -translate-x-1/2 -translate-y-[calc(50%+24px)]">
                   <DialogPrimitive.Close asChild>
                     <Button

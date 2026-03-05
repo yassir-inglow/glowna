@@ -93,7 +93,7 @@ const meta: Meta<typeof TaskRow> = {
   },
   decorators: [
     (Story) => (
-      <div className="w-[1052px] rounded-xl border border-gray-cool-100 overflow-hidden">
+      <div className="w-[1052px] rounded-xl overflow-hidden">
         <Story />
       </div>
     ),
@@ -152,7 +152,7 @@ export const Minimal: Story = {
 export const Skeleton: Story = {
   decorators: [
     () => (
-      <div className="w-[1052px] rounded-xl border border-gray-cool-100 overflow-hidden">
+      <div className="w-[1052px] rounded-xl overflow-hidden">
         <TaskRowSkeleton />
         <TaskRowSkeleton />
         <TaskRowSkeleton />
@@ -166,7 +166,7 @@ export const Skeleton: Story = {
 export const List: Story = {
   decorators: [
     () => (
-      <div className="w-[1052px] rounded-xl border border-gray-cool-100 overflow-hidden">
+      <div className="w-[1052px] rounded-xl overflow-hidden">
         <TaskRow
           title="Redesign landing page"
           onCompletedChange={async () => {}}

@@ -3,6 +3,20 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+
+export function SearchButtonSkeleton({ className }: { className?: string }) {
+  return (
+    <div
+      data-slot="search-button-skeleton"
+      className={cn(
+        "size-9 animate-pulse rounded-full bg-gray-cool-100",
+        className,
+      )}
+    />
+  )
+}
+
 function SearchIcon() {
   return (
     <svg

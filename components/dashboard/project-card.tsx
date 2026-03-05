@@ -8,7 +8,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
-import { Avatar, AvatarAvvvatars, AvatarImage, AvatarGroup } from "@/components/ui/avatar"
+import { Avatar, AvatarAvvvatars, AvatarImage, AvatarGroup, AvatarGroupSkeleton, AvatarSkeleton } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   DropdownMenu,
@@ -76,10 +76,7 @@ export function ProjectCardSkeleton() {
   return (
     <div className="flex h-[200px] flex-col justify-between rounded-[24px] border border-gray-cool-100 bg-gradient-to-b from-gray-cool-25 to-gray-cool-50 p-4">
       <div className="flex items-center justify-between">
-        <div className="flex -space-x-1">
-          <Skeleton className="size-6 rounded-full" />
-          <Skeleton className="size-6 rounded-full" />
-        </div>
+        <AvatarGroupSkeleton count={3} size="xs" />
         <Skeleton className="size-7 rounded-full" />
       </div>
       <div className="space-y-2.5">

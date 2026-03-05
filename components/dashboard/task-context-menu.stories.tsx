@@ -20,7 +20,7 @@ export const Default: Story = {
   },
   decorators: [
     (Story) => (
-      <div className="w-[1052px] rounded-xl border border-gray-cool-100 overflow-hidden">
+      <div className="w-[1052px] rounded-xl overflow-hidden">
         <Story />
       </div>
     ),
@@ -44,7 +44,7 @@ export const Default: Story = {
 export const MultipleRows: Story = {
   decorators: [
     (Story) => (
-      <div className="w-[1052px] rounded-xl border border-gray-cool-100 overflow-hidden">
+      <div className="w-[1052px] rounded-xl overflow-hidden">
         <Story />
       </div>
     ),

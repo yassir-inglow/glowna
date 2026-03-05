@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Add01Icon } from "@hugeicons/core-free-icons"
+import { Add01Icon, ArrowDown01Icon } from "@hugeicons/core-free-icons"
 
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarAvvvatars, AvatarGroup, AvatarImage } from "@/components/ui/avatar"
@@ -21,27 +21,6 @@ function getInitials(name: string | null | undefined): string {
   return parts[0].slice(0, 2).toUpperCase()
 }
 
-function ChevronDownIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M6 9l6 6 6-6"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
 type ProjectDetailProps = {
   project: ProjectWithMembers
   tasks: TaskWithProject[]
@@ -56,13 +35,15 @@ export function ProjectDetail({ project, tasks }: ProjectDetailProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <button
+        <Button
           type="button"
-          className="flex items-center gap-1 text-display-xs font-medium text-gray-cool-800"
+          variant="ghost"
+          size="sm"
+          trailingIcon={ArrowDown01Icon}
+          className="text-display-xs font-medium text-gray-cool-800 hover:bg-transparent"
         >
           {project.title}
-          <ChevronDownIcon />
-        </button>
+        </Button>
         <div className="flex items-center gap-3">
           {project.members.length > 0 && (
             <AvatarGroup>

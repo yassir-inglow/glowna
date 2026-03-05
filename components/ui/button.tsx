@@ -17,7 +17,7 @@ const buttonVariants = cva(
           "text-gray-cool-500 hover:bg-alpha-900 active:bg-alpha-800",
       },
       size: {
-        xxs: "pl-1 pr-2 py-[2px] text-text-xs",
+        xxs: "pl-1 pr-1.5 py-1 text-text-xs",
         xs: "px-2 py-1.5 text-text-sm",
         sm: "p-2 text-text-sm",
         md: "p-2.5 text-text-sm",
@@ -107,7 +107,7 @@ function Button({
   const iconPx = iconSizeMap[resolvedSize ?? "md"] ?? 20
 
   const gapClass =
-    variant === "primary" || resolvedSize === "xxs" || resolvedSize === "icon-xxs"
+    variant === "primary" || resolvedSize === "icon-xxs"
       ? "gap-[2px]"
       : "gap-1"
 
@@ -178,5 +178,48 @@ function Button({
   )
 }
 
-export { Button, buttonVariants }
-export type { ButtonProps }
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+
+type ButtonSkeletonProps = {
+  variant?: "primary" | "secondary" | "ghost"
+  size?: NonNullable<ButtonProps["size"]>
+  className?: string
+  width?: string
+}
+
+function ButtonSkeleton({
+  size = "md",
+  className,
+  width,
+}: ButtonSkeletonProps) {
+  const isIcon = size?.toString().startsWith("icon-")
+
+  const sizeMap: Record<string, string> = {
+    xxs: "h-[26px]",
+    xs: "h-[32px]",
+    sm: "h-[36px]",
+    md: "h-[40px]",
+    lg: "h-[44px]",
+    xl: "h-[44px]",
+    "icon-xxs": "size-[22px]",
+    "icon-xs": "size-[32px]",
+    "icon-sm": "size-[36px]",
+    "icon-md": "size-[40px]",
+    "icon-lg": "size-[44px]",
+  }
+
+  return (
+    <div
+      data-slot="button-skeleton"
+      className={cn(
+        "animate-pulse rounded-full bg-gray-cool-100",
+        sizeMap[size ?? "md"],
+        isIcon ? undefined : (width ?? "w-24"),
+        className,
+      )}
+    />
+  )
+}
+
+export { Button, buttonVariants, ButtonSkeleton }
+export type { ButtonProps, ButtonSkeletonProps }

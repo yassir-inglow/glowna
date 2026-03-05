@@ -2,31 +2,13 @@
 
 import { useState, useTransition } from "react"
 import { Popover as PopoverPrimitive } from "radix-ui"
-import { SentIcon } from "@hugeicons/core-free-icons"
+import { CircleLock01Icon, SentIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { inviteToProject } from "@/app/actions"
 import { cn } from "@/lib/utils"
-
-function ShareIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <circle cx="18" cy="5" r="3" stroke="currentColor" strokeWidth="1.8" />
-      <circle cx="6" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
-      <circle cx="18" cy="19" r="3" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  )
-}
 
 type InvitePopoverProps = {
   projectId: string
@@ -69,16 +51,15 @@ export function InvitePopover({ projectId, className }: InvitePopoverProps) {
   return (
     <PopoverPrimitive.Root open={open} onOpenChange={handleOpenChange}>
       <PopoverPrimitive.Trigger asChild>
-        <button
+        <Button
           type="button"
-          className={cn(
-            "flex items-center gap-1.5 text-text-sm font-medium text-gray-cool-400 transition-colors hover:text-gray-cool-600",
-            className,
-          )}
+          variant="secondary"
+          size="xxs"
+          leadingIcon={CircleLock01Icon}
+          className={className}
         >
-          <ShareIcon />
-          Share
-        </button>
+          Invite
+        </Button>
       </PopoverPrimitive.Trigger>
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Content

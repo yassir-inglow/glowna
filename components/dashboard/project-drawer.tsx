@@ -2,10 +2,16 @@
 
 import * as React from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { ArrowDown01Icon } from "@hugeicons/core-free-icons"
 
 import { Drawer, DrawerContent } from "@/components/ui/drawer"
 import { ProjectDetail } from "@/components/dashboard/project-detail"
 import { TaskRowSkeleton } from "@/components/dashboard/task-row"
+import { Button } from "@/components/ui/button"
+import { ButtonSkeleton } from "@/components/ui/button"
+import { Avatar, AvatarAvvvatars, AvatarGroup, AvatarImage } from "@/components/ui/avatar"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { SearchButtonSkeleton } from "@/components/dashboard/search-button"
 import { createClient } from "@/lib/supabase/client"
 import type { ProjectWithMembers, TaskWithProject } from "@/lib/data"
 
@@ -128,7 +134,7 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
           {project && tasks !== null && !loading ? (
             <ProjectDetail project={project} tasks={tasks} />
           ) : project ? (
-            <DrawerSkeleton title={project.title} />
+            <DrawerSkeleton project={project} />
           ) : null}
         </div>
       </DrawerContent>
@@ -136,15 +142,62 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
   )
 }
 
-function DrawerSkeleton({ title }: { title: string }) {
+function DrawerSkeleton({ project }: { project: ProjectWithMembers }) {
   return (
     <div className="space-y-6">
+      {/* Title row — mirrors ProjectDetail header exactly */}
       <div className="flex items-center justify-between">
-        <span className="text-display-xs font-medium text-gray-cool-800">
-          {title}
-        </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          trailingIcon={ArrowDown01Icon}
+          className="text-display-xs font-medium text-gray-cool-800 hover:bg-transparent pointer-events-none"
+        >
+          {project.title}
+        </Button>
+        <div className="flex items-center gap-3">
+          {project.members.length > 0 && (
+            <AvatarGroup>
+              {project.members.map((member) => (
+                <Avatar key={member.id} size="xs" className="ring-[1.5px] ring-white">
+                  {member.avatar_url ? (
+                    <AvatarImage src={member.avatar_url} alt="" />
+                  ) : (
+                    <AvatarAvvvatars value={member.full_name ?? member.email ?? member.id} />
+                  )}
+                </Avatar>
+              ))}
+            </AvatarGroup>
+          )}
+          <ButtonSkeleton size="xxs" width="w-[72px]" />
+        </div>
       </div>
-      <div className="overflow-hidden rounded-xl border border-gray-cool-100">
+
+      {/* Tabs row — mirrors ProjectDetail tabs + action buttons */}
+      <div className="flex items-center justify-between gap-4">
+        <Tabs defaultValue="overview">
+          <TabsList className="h-auto gap-0 rounded-full bg-transparent p-0">
+            {["Overview", "List", "Board", "Timeline"].map((tab) => (
+              <TabsTrigger
+                key={tab.toLowerCase()}
+                value={tab.toLowerCase()}
+                className="pointer-events-none rounded-full px-3 py-1.5 text-text-sm font-medium text-gray-cool-400 transition-colors data-[state=active]:bg-alpha-900 data-[state=active]:text-gray-cool-700"
+              >
+                {tab}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+
+        <div className="flex items-center gap-2">
+          <SearchButtonSkeleton />
+          <ButtonSkeleton size="xs" width="w-[108px]" />
+        </div>
+      </div>
+
+      {/* Task list skeleton */}
+      <div className="overflow-hidden">
         {Array.from({ length: 5 }).map((_, i) => (
           <TaskRowSkeleton key={i} />
         ))}

@@ -91,11 +91,16 @@ function AvatarImage({
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Image>) {
   return (
-    <AvatarPrimitive.Image
-      data-slot="avatar-image"
-      className={cn("aspect-square h-full w-full object-cover", className)}
-      {...props}
-    />
+    <>
+      <AvatarPrimitive.Image
+        data-slot="avatar-image"
+        className={cn("aspect-square h-full w-full object-cover", className)}
+        {...props}
+      />
+      <AvatarPrimitive.Fallback asChild delayMs={0}>
+        <div className="h-full w-full animate-pulse rounded-full bg-gray-cool-100" />
+      </AvatarPrimitive.Fallback>
+    </>
   )
 }
 
@@ -153,9 +158,7 @@ function getInitials(value: string): string {
 
 /**
  * Drop-in replacement for AvatarFallback powered by avvvatars.
- * Pass `value` as a seed (email, full name, etc.) for deterministic color + character generation.
- * Automatically extracts initials from the value ("John Doe" → "JD", "tim@apple.com" → "TI").
- * Optionally pass `displayValue` to override.
+ * Defers rendering until after hydration to prevent a flash of unstyled text.
  */
 function AvatarAvvvatars({
   value,
@@ -168,6 +171,17 @@ function AvatarAvvvatars({
 }) {
   const { size } = React.useContext(AvatarContext)
   const px = size ? sizeInPx[size] : 32
+  const [ready, setReady] = React.useState(false)
+
+  React.useEffect(() => {
+    setReady(true)
+  }, [])
+
+  if (!ready) {
+    return (
+      <div className="h-full w-full animate-pulse rounded-full bg-gray-cool-100" />
+    )
+  }
 
   return (
     <Avvvatars
@@ -214,5 +228,42 @@ function AvatarAddButton({
   )
 }
 
-export { Avatar, AvatarImage, AvatarFallback, AvatarAvvvatars, AvatarGroup, AvatarAddButton }
+function AvatarSkeleton({
+  size = "sm",
+  className,
+}: {
+  size?: AvatarSize
+  className?: string
+}) {
+  return (
+    <div
+      data-slot="avatar"
+      className={cn(
+        "relative inline-flex shrink-0 animate-pulse rounded-full bg-gray-cool-100",
+        sizeStyles[size],
+        className,
+      )}
+    />
+  )
+}
+
+function AvatarGroupSkeleton({
+  count = 2,
+  size = "xs",
+  className,
+}: {
+  count?: number
+  size?: AvatarSize
+  className?: string
+}) {
+  return (
+    <AvatarGroup className={className}>
+      {Array.from({ length: count }, (_, i) => (
+        <AvatarSkeleton key={i} size={size} className="ring-[1.5px] ring-white" />
+      ))}
+    </AvatarGroup>
+  )
+}
+
+export { Avatar, AvatarImage, AvatarFallback, AvatarAvvvatars, AvatarGroup, AvatarAddButton, AvatarSkeleton, AvatarGroupSkeleton }
 export type { AvatarStatus, AvatarSize }
