@@ -1,7 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { resend } from "@/lib/resend"
+import { getResendClient } from "@/lib/resend"
 import { projectInviteEmail } from "@/lib/emails/project-invite"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
@@ -314,6 +314,11 @@ export async function inviteToProject(
     acceptUrl,
     isExistingUser: !!existingProfile,
   })
+
+  const resend = getResendClient()
+  if (!resend) {
+    return { success: false, error: "Email service is not configured" }
+  }
 
   const { error: emailError } = await resend.emails.send({
     from: "Glowna <onboarding@resend.dev>",
