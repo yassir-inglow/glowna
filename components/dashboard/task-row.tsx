@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useOptimistic, useRef, useTransition } from "react"
+import { useState, useEffect, useOptimistic, useRef, useTransition, useMemo } from "react"
 
 import {
   Square01Icon,
@@ -8,15 +8,31 @@ import {
   Tag02Icon,
   BubbleChatIcon,
   Folder01Icon,
+  PlusSignIcon,
+  Calendar03Icon,
 } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Popover as PopoverPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarAvvvatars, AvatarGroup, AvatarImage, AvatarSkeleton } from "@/components/ui/avatar"
+import type { DateRange } from "react-day-picker"
+
 import { Button } from "@/components/ui/button"
+import { Calendar, RangeCalendar } from "@/components/ui/calendar"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
-import { toggleTaskCompleted } from "@/app/actions"
-import { markMutation } from "@/hooks/mutation-tracker"
+import { AssigneePopover } from "@/components/dashboard/assignee-popover"
+import { toggleTaskCompleted, updateTaskDates } from "@/app/actions"
+import { markMutation, hasRecentLocalMutation } from "@/hooks/mutation-tracker"
+import type { ProjectMember } from "@/lib/data"
+
+function initials(name: string | null | undefined): string {
+  if (!name) return "?"
+  const parts = name.includes("@") ? [name.split("@")[0]] : name.trim().split(/\s+/)
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  return parts[0].slice(0, 2).toUpperCase()
+}
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
@@ -65,6 +81,16 @@ export type TaskRowProps = {
   projectName?: string
   avatars?: TaskRowAvatar[]
   selected?: boolean
+  /** Project members for the assignee popover. When provided with `id`, the avatar area becomes interactive. */
+  members?: ProjectMember[]
+  /** Profile IDs of current assignees — used together with `members`. */
+  assignedIds?: string[]
+  /** Callback after an assignee is added/removed/cleared. */
+  onAssigneeChange?: () => void
+  /** Due date stored in the DB (ISO date string). */
+  initialDueDate?: string | null
+  /** End of date range stored in the DB (ISO date string). */
+  initialDueDateEnd?: string | null
 }
 
 export function TaskRow({
@@ -81,11 +107,86 @@ export function TaskRow({
   projectName,
   avatars = [],
   selected = false,
+  members,
+  assignedIds,
+  onAssigneeChange,
+  initialDueDate,
+  initialDueDateEnd,
 }: TaskRowProps) {
-  const [isPending, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
   const [optimisticCompleted, setOptimisticCompleted] = useOptimistic(completed)
   const [contextOpen, setContextOpen] = useState(false)
+  const [calendarOpen, setCalendarOpen] = useState(false)
+  const [rangeMode, setRangeMode] = useState(!!initialDueDateEnd)
+  const [dueDate, setDueDate] = useState<Date | undefined>(() => {
+    if (initialDueDate && !initialDueDateEnd) return new Date(initialDueDate + "T00:00:00")
+    return undefined
+  })
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    if (initialDueDate && initialDueDateEnd) {
+      return {
+        from: new Date(initialDueDate + "T00:00:00"),
+        to: new Date(initialDueDateEnd + "T00:00:00"),
+      }
+    }
+    return undefined
+  })
   const rowRef = useRef<HTMLDivElement>(null)
+  const prevDueDateProp = useRef(initialDueDate)
+  const prevDueDateEndProp = useRef(initialDueDateEnd)
+
+  useEffect(() => {
+    if (prevDueDateProp.current === initialDueDate && prevDueDateEndProp.current === initialDueDateEnd) return
+    prevDueDateProp.current = initialDueDate
+    prevDueDateEndProp.current = initialDueDateEnd
+
+    if (initialDueDate && initialDueDateEnd) {
+      setRangeMode(true)
+      setDueDate(undefined)
+      setDateRange({
+        from: new Date(initialDueDate + "T00:00:00"),
+        to: new Date(initialDueDateEnd + "T00:00:00"),
+      })
+    } else if (initialDueDate) {
+      setRangeMode(false)
+      setDueDate(new Date(initialDueDate + "T00:00:00"))
+      setDateRange(undefined)
+    } else {
+      setRangeMode(false)
+      setDueDate(undefined)
+      setDateRange(undefined)
+    }
+  }, [initialDueDate, initialDueDateEnd])
+
+  // ── Local assignee state (optimistic + synced from parent for realtime) ─────
+  const [localAssignedIds, setLocalAssignedIds] = useState<string[]>(assignedIds ?? [])
+  const prevAssignedRef = useRef(assignedIds)
+
+  useEffect(() => {
+    const prev = prevAssignedRef.current ?? []
+    const next = assignedIds ?? []
+    prevAssignedRef.current = assignedIds
+
+    if (prev.length === next.length && prev.every((id, i) => id === next[i])) return
+    if (hasRecentLocalMutation("task_assignees")) return
+    setLocalAssignedIds(next)
+  }, [assignedIds])
+
+  const displayAvatars = useMemo<TaskRowAvatar[]>(() => {
+    if (!members?.length) return avatars
+    return localAssignedIds
+      .map((pid) => members.find((m) => m.id === pid))
+      .filter((m): m is ProjectMember => !!m)
+      .map((m) => ({
+        src: m.avatar_url ?? undefined,
+        fallback: initials(m.full_name ?? m.email),
+        value: m.full_name ?? m.email ?? undefined,
+      }))
+  }, [localAssignedIds, members, avatars])
+
+  function formatDateForDb(date: Date): string {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
+  }
 
   useEffect(() => {
     if (!contextOpen) return
@@ -113,22 +214,25 @@ export function TaskRow({
     if (onCompletedChange) {
       startTransition(async () => {
         setOptimisticCompleted(checked)
-        await onCompletedChange(checked)
+        try {
+          await onCompletedChange(checked)
+        } catch {
+          setOptimisticCompleted(!checked)
+        }
       })
       return
     }
 
-    if (!id) {
-      startTransition(() => {
-        setOptimisticCompleted(checked)
-      })
-      return
-    }
+    if (!id) return
 
+    markMutation("tasks")
     startTransition(async () => {
       setOptimisticCompleted(checked)
-      markMutation("tasks")
-      await toggleTaskCompleted(id, checked)
+      try {
+        await toggleTaskCompleted(id, checked)
+      } catch {
+        setOptimisticCompleted(!checked)
+      }
     })
   }
 
@@ -139,7 +243,6 @@ export function TaskRow({
       className={cn(
         "flex w-full items-center justify-between border-b border-gray-cool-100 px-4 py-4 transition-colors hover:bg-alpha-900",
         (selected || contextOpen) && "bg-alpha-900",
-        isPending && "opacity-60",
       )}
     >
       {/* Left: task info */}
@@ -148,7 +251,6 @@ export function TaskRow({
           <Checkbox
             checked={optimisticCompleted}
             onCheckedChange={handleCheckedChange}
-            loading={isPending}
           />
           <span
             className="text-text-md font-medium whitespace-nowrap text-gray-cool-700"
@@ -157,21 +259,165 @@ export function TaskRow({
           </span>
         </div>
 
-        {showAddons && (
-          <div className="flex items-center pl-[22px]">
-            <Button variant="ghost" size="xxs" leadingIcon={Square01Icon}>
-              {`${subTaskCurrent}/${subTaskTotal}`}
-            </Button>
-            <Button variant="ghost" size="xxs" leadingIcon={Add01Icon}>
-              {addText}
-            </Button>
-            <Button variant="ghost" size="xxs" leadingIcon={Tag02Icon}>
-              {labelText}
-            </Button>
-            <Button variant="ghost" size="xxs" leadingIcon={BubbleChatIcon}>
-              {String(commentCount)}
-            </Button>
-          </div>
+        {(showAddons || dueDate || dateRange?.from) && (
+        <div className="flex items-center pl-[22px]">
+          {showAddons && (
+            <>
+              <Button variant="ghost" size="xxs" leadingIcon={Square01Icon}>
+                {`${subTaskCurrent}/${subTaskTotal}`}
+              </Button>
+              <Button variant="ghost" size="xxs" leadingIcon={Add01Icon}>
+                {addText}
+              </Button>
+              <Button variant="ghost" size="xxs" leadingIcon={Tag02Icon}>
+                {labelText}
+              </Button>
+              <Button variant="ghost" size="xxs" leadingIcon={BubbleChatIcon}>
+                {String(commentCount)}
+              </Button>
+            </>
+          )}
+
+          <PopoverPrimitive.Root open={calendarOpen} onOpenChange={setCalendarOpen}>
+            <PopoverPrimitive.Trigger asChild>
+              <Button variant="ghost" size="xxs" leadingIcon={Calendar03Icon}>
+                {rangeMode && dateRange?.from
+                  ? `${dateRange.from.toLocaleDateString("en-US", { month: "short", day: "numeric" })}${dateRange.to ? ` – ${dateRange.to.toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}`
+                  : dueDate
+                    ? dueDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                    : "Date"}
+              </Button>
+            </PopoverPrimitive.Trigger>
+            <PopoverPrimitive.Portal>
+              <PopoverPrimitive.Content
+                side="bottom"
+                align="start"
+                sideOffset={8}
+                className="z-50 overflow-clip rounded-2xl border border-gray-cool-100 bg-white shadow-[0px_0px_4px_0px_rgba(93,107,152,0.08),0px_8px_16px_0px_rgba(93,107,152,0.08)] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {rangeMode ? (
+                  <RangeCalendar
+                    selected={dateRange}
+                    onSelect={(range) => {
+                      const prev = dateRange
+                      setDateRange(range)
+                      if (id && range?.from) {
+                        const from = formatDateForDb(range.from)
+                        const to = range.to ? formatDateForDb(range.to) : null
+                        markMutation("tasks")
+                        startTransition(async () => {
+                          try {
+                            await updateTaskDates(id, from, to)
+                          } catch {
+                            setDateRange(prev)
+                          }
+                        })
+                      }
+                    }}
+                  />
+                ) : (
+                  <Calendar
+                    mode="single"
+                    selected={dueDate}
+                    onSelect={(date) => {
+                      const prev = dueDate
+                      setDueDate(date)
+                      setCalendarOpen(false)
+                      if (id) {
+                        const val = date ? formatDateForDb(date) : null
+                        markMutation("tasks")
+                        startTransition(async () => {
+                          try {
+                            await updateTaskDates(id, val, null)
+                          } catch {
+                            setDueDate(prev)
+                          }
+                        })
+                      }
+                    }}
+                  />
+                )}
+
+                <div className="flex flex-col border-t border-gray-cool-100">
+                  <div className="flex items-center justify-between px-3 py-2.5">
+                    <span className="text-text-sm font-medium text-gray-cool-700">Add an end date</span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={rangeMode}
+                      onClick={() => {
+                        if (rangeMode) {
+                          const prevRange = dateRange
+                          setDateRange(undefined)
+                          if (id) {
+                            markMutation("tasks")
+                            startTransition(async () => {
+                              try {
+                                await updateTaskDates(id, dueDate ? formatDateForDb(dueDate) : null, null)
+                              } catch {
+                                setDateRange(prevRange)
+                                setRangeMode(true)
+                                return
+                              }
+                            })
+                          }
+                        } else if (dueDate) {
+                          setDateRange({ from: dueDate, to: undefined })
+                          setDueDate(undefined)
+                        }
+                        setRangeMode(!rangeMode)
+                      }}
+                      className={cn(
+                        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors",
+                        rangeMode ? "bg-bg-brand" : "bg-gray-cool-200",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "pointer-events-none block size-3.5 rounded-full bg-white shadow-sm transition-transform",
+                          rangeMode ? "translate-x-[18px]" : "translate-x-[3px]",
+                        )}
+                      />
+                    </button>
+                  </div>
+
+                  {(dueDate || dateRange?.from) && (
+                    <div className="border-t border-gray-cool-100 p-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const prevDate = dueDate
+                          const prevRange = dateRange
+                          const prevRangeMode = rangeMode
+                          setDueDate(undefined)
+                          setDateRange(undefined)
+                          setRangeMode(false)
+                          setCalendarOpen(false)
+                          if (id) {
+                            markMutation("tasks")
+                            startTransition(async () => {
+                              try {
+                                await updateTaskDates(id, null, null)
+                              } catch {
+                                setDueDate(prevDate)
+                                setDateRange(prevRange)
+                                setRangeMode(prevRangeMode)
+                              }
+                            })
+                          }
+                        }}
+                        className="w-full rounded-full py-2 text-center text-text-sm font-medium text-gray-cool-500 transition-colors hover:bg-alpha-900 cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </PopoverPrimitive.Content>
+            </PopoverPrimitive.Portal>
+          </PopoverPrimitive.Root>
+        </div>
         )}
       </div>
 
@@ -183,7 +429,38 @@ export function TaskRow({
           </Button>
         )}
 
-        {avatars.length > 0 && (
+        {id && members ? (
+          <AssigneePopover
+            taskId={id}
+            members={members}
+            assignedIds={localAssignedIds}
+            onChanged={onAssigneeChange}
+            onAssignedIdsChange={setLocalAssignedIds}
+          >
+            <button type="button" className="flex items-center gap-0 cursor-pointer">
+              {displayAvatars.length > 0 ? (
+                <AvatarGroup>
+                  {displayAvatars.map((av, i) => (
+                    <Avatar key={i} size="xs" className="ring-[1.5px] ring-white">
+                      {av.src ? (
+                        <AvatarImage src={av.src} alt="" />
+                      ) : (
+                        <AvatarAvvvatars value={av.value ?? av.fallback} />
+                      )}
+                    </Avatar>
+                  ))}
+                </AvatarGroup>
+              ) : (
+                <span
+                  data-slot="avatar"
+                  className="relative inline-flex shrink-0 items-center justify-center rounded-full border border-dashed border-gray-cool-200 bg-gray-cool-100 text-gray-cool-400 transition-colors hover:bg-gray-cool-200 hover:text-gray-cool-600 size-6"
+                >
+                  <HugeiconsIcon icon={PlusSignIcon} size={12} color="currentColor" strokeWidth={2} />
+                </span>
+              )}
+            </button>
+          </AssigneePopover>
+        ) : avatars.length > 0 ? (
           <AvatarGroup>
             {avatars.map((av, i) => (
               <Avatar key={i} size="xs" className="ring-[1.5px] ring-white">
@@ -195,7 +472,7 @@ export function TaskRow({
               </Avatar>
             ))}
           </AvatarGroup>
-        )}
+        ) : null}
       </div>
     </div>
   )

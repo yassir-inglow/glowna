@@ -15,7 +15,7 @@ import { SearchButton } from "@/components/dashboard/search-button"
 import { TaskRow } from "@/components/dashboard/task-row"
 import { TaskContextMenu } from "@/components/dashboard/task-context-menu"
 import { useRealtimeRefresh } from "@/hooks/use-realtime-refresh"
-import type { ProjectWithMembers, TaskWithProject } from "@/lib/data"
+import type { ProjectMember, ProjectWithMembers, TaskWithProject } from "@/lib/data"
 
 function getInitials(name: string | null | undefined): string {
   if (!name) return "?"
@@ -41,6 +41,7 @@ export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
   )
 
   useRealtimeRefresh({ table: "tasks" })
+  useRealtimeRefresh({ table: "task_assignees" })
   useRealtimeRefresh({ table: "project_members" })
 
   const handleProjectSelect = React.useCallback(
@@ -71,6 +72,12 @@ export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
         : projects,
     [projects, q],
   )
+
+  const projectMembersMap = React.useMemo(() => {
+    const map = new Map<string, ProjectMember[]>()
+    for (const p of projects) map.set(p.id, p.members)
+    return map
+  }, [projects])
 
   const filteredTasks = React.useMemo(
     () =>
@@ -196,6 +203,10 @@ export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
                         fallback: getInitials(a.profiles?.full_name ?? a.profiles?.email),
                         value: a.profiles?.full_name ?? a.profiles?.email ?? undefined,
                       }))}
+                      members={projectMembersMap.get(task.project_id)}
+                      assignedIds={task.task_assignees.map((a) => a.profiles?.id).filter(Boolean) as string[]}
+                      initialDueDate={task.due_date}
+                      initialDueDateEnd={task.due_date_end}
                     />
                   </TaskContextMenu>
                 </motion.div>

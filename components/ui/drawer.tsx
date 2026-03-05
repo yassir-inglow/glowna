@@ -24,9 +24,10 @@ function CloseIcon() {
 }
 
 function Drawer({
+  modal = false,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  return <DialogPrimitive.Root data-slot="drawer" {...props} />
+  return <DialogPrimitive.Root data-slot="drawer" modal={modal} {...props} />
 }
 
 function DrawerTrigger({

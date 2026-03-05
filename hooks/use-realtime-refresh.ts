@@ -3,17 +3,26 @@
 import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import { shouldSuppressRefresh } from "@/hooks/mutation-tracker"
+import { hasRecentLocalMutation } from "@/hooks/mutation-tracker"
 
 type Options = {
   table: string
   filter?: string
-  /** Debounce window in ms (default 500) */
+  /** Debounce window in ms for remote changes (default 500) */
   debounce?: number
+  /** Debounce window in ms after a local mutation — acts as a fallback
+   *  in case revalidatePath didn't trigger a client re-render (default 2000) */
+  fallbackDebounce?: number
   enabled?: boolean
 }
 
-export function useRealtimeRefresh({ table, filter, debounce = 500, enabled = true }: Options) {
+export function useRealtimeRefresh({
+  table,
+  filter,
+  debounce = 500,
+  fallbackDebounce = 2000,
+  enabled = true,
+}: Options) {
   const router = useRouter()
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -41,13 +50,12 @@ export function useRealtimeRefresh({ table, filter, debounce = 500, enabled = tr
         "postgres_changes" as any,
         subscriptionConfig,
         () => {
-          if (shouldSuppressRefresh(table)) return
+          const delay = hasRecentLocalMutation(table) ? fallbackDebounce : debounce
 
           if (timeoutRef.current) clearTimeout(timeoutRef.current)
           timeoutRef.current = setTimeout(() => {
-            if (shouldSuppressRefresh(table)) return
             router.refresh()
-          }, debounce)
+          }, delay)
         }
       )
       .subscribe()
@@ -56,5 +64,5 @@ export function useRealtimeRefresh({ table, filter, debounce = 500, enabled = tr
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
       supabase.removeChannel(channel)
     }
-  }, [table, filter, debounce, enabled, router])
+  }, [table, filter, debounce, fallbackDebounce, enabled, router])
 }

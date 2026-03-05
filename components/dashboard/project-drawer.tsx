@@ -13,7 +13,8 @@ import { Avatar, AvatarAvvvatars, AvatarGroup, AvatarImage } from "@/components/
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SearchButtonSkeleton } from "@/components/dashboard/search-button"
 import { createClient } from "@/lib/supabase/client"
-import { shouldSuppressRefresh, markMutation } from "@/hooks/mutation-tracker"
+import { hasRecentLocalMutation, markMutation } from "@/hooks/mutation-tracker"
+import { onPeerChange } from "@/hooks/use-broadcast-sync"
 import { toggleTaskCompleted } from "@/app/actions"
 import type { ProjectWithMembers, TaskWithProject } from "@/lib/data"
 
@@ -35,7 +36,17 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
     [projectId, projects],
   )
 
-  const isOpen = !!project
+  const [manualClose, setManualClose] = React.useState(false)
+  const isOpen = !!project && !manualClose
+
+  // Reset once the URL actually catches up
+  React.useEffect(() => { setManualClose(false) }, [projectId])
+
+  // Refs for values accessed inside realtime callbacks (avoids effect re-subscription)
+  const tasksRef = React.useRef(tasks)
+  tasksRef.current = tasks
+  const projectRef = React.useRef(project)
+  projectRef.current = project
 
   const fetchProjectTasks = React.useCallback(async (pid: string) => {
     const supabase = createClient()
@@ -73,12 +84,42 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
     }
   }, [projectId, fetchProjectTasks])
 
-  // Realtime subscription: re-fetch tasks when they change
+  // Deduplication + version guard: skip redundant refetches within 300ms and
+  // discard results if postgres_changes patched data while the fetch was in-flight.
+  const lastRefetchRef = React.useRef(0)
+  const patchVersionRef = React.useRef(0)
+
+  const dedupedRefetch = React.useCallback(
+    async (pid: string) => {
+      const now = Date.now()
+      if (now - lastRefetchRef.current < 300) return
+      lastRefetchRef.current = now
+      const vBefore = patchVersionRef.current
+      const result = await fetchProjectTasks(pid)
+      if (patchVersionRef.current > vBefore) return
+      if (result) setTasks(result)
+    },
+    [fetchProjectTasks],
+  )
+
+  // Realtime subscription: payload-patch for instant updates + background refetch
   React.useEffect(() => {
     if (!projectId) return
 
     const supabase = createClient()
-    let timeout: ReturnType<typeof setTimeout> | null = null
+    let urgentTimeout: ReturnType<typeof setTimeout> | null = null
+    let bgTimeout: ReturnType<typeof setTimeout> | null = null
+
+    const scheduleUrgentRefetch = (table: string) => {
+      const delay = hasRecentLocalMutation(table) ? 2000 : 150
+      if (urgentTimeout) clearTimeout(urgentTimeout)
+      urgentTimeout = setTimeout(() => dedupedRefetch(projectId!), delay)
+    }
+
+    const scheduleBackgroundRefetch = () => {
+      if (bgTimeout) clearTimeout(bgTimeout)
+      bgTimeout = setTimeout(() => dedupedRefetch(projectId!), 2000)
+    }
 
     const channel = supabase
       .channel(`drawer-tasks-${projectId}`)
@@ -90,24 +131,123 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
           table: "tasks",
           filter: `project_id=eq.${projectId}`,
         },
-        () => {
-          if (shouldSuppressRefresh("tasks")) return
+        (payload: any) => {
+          if (hasRecentLocalMutation("tasks")) {
+            scheduleBackgroundRefetch()
+            return
+          }
 
-          if (timeout) clearTimeout(timeout)
-          timeout = setTimeout(async () => {
-            if (shouldSuppressRefresh("tasks")) return
-            const result = await fetchProjectTasks(projectId!)
-            if (result) setTasks(result)
-          }, 500)
+          const { eventType, new: newRow } = payload
+
+          if (eventType === "UPDATE" && newRow) {
+            patchVersionRef.current++
+            setTasks((prev) =>
+              prev?.map((t) =>
+                t.id === newRow.id
+                  ? { ...t, ...newRow, projects: t.projects, task_assignees: t.task_assignees }
+                  : t,
+              ) ?? null,
+            )
+            scheduleBackgroundRefetch()
+          } else {
+            // INSERT/DELETE — need full data, refetch fast
+            scheduleUrgentRefetch("tasks")
+          }
+        },
+      )
+      .on(
+        "postgres_changes" as any,
+        {
+          event: "*",
+          schema: "public",
+          table: "task_assignees",
+        },
+        (payload: any) => {
+          if (hasRecentLocalMutation("task_assignees")) {
+            scheduleBackgroundRefetch()
+            return
+          }
+
+          const { eventType, new: newRow, old: oldRow } = payload
+          const taskId = newRow?.task_id ?? oldRow?.task_id
+          const profileId = newRow?.profile_id ?? oldRow?.profile_id
+
+          // Ignore events for tasks not in this project
+          if (!taskId) {
+            scheduleUrgentRefetch("task_assignees")
+            return
+          }
+
+          const isRelevant = tasksRef.current?.some((t) => t.id === taskId)
+          if (!isRelevant) return
+
+          if (eventType === "INSERT" && profileId) {
+            const member = projectRef.current?.members.find((m) => m.id === profileId)
+            if (member) {
+              patchVersionRef.current++
+              setTasks((prev) =>
+                prev?.map((t) =>
+                  t.id === taskId
+                    ? {
+                        ...t,
+                        task_assignees: [
+                          ...t.task_assignees,
+                          { profiles: { id: member.id, full_name: member.full_name, email: member.email, avatar_url: member.avatar_url } },
+                        ],
+                      }
+                    : t,
+                ) ?? null,
+              )
+              scheduleBackgroundRefetch()
+              return
+            }
+          }
+
+          if (eventType === "DELETE" && profileId) {
+            patchVersionRef.current++
+            setTasks((prev) =>
+              prev?.map((t) =>
+                t.id === taskId
+                  ? {
+                      ...t,
+                      task_assignees: t.task_assignees.filter((a) => a.profiles?.id !== profileId),
+                    }
+                  : t,
+              ) ?? null,
+            )
+            scheduleBackgroundRefetch()
+            return
+          }
+
+          scheduleUrgentRefetch("task_assignees")
         },
       )
       .subscribe()
 
     return () => {
-      if (timeout) clearTimeout(timeout)
+      if (urgentTimeout) clearTimeout(urgentTimeout)
+      if (bgTimeout) clearTimeout(bgTimeout)
       supabase.removeChannel(channel)
     }
-  }, [projectId, fetchProjectTasks])
+  }, [projectId, dedupedRefetch])
+
+  // Broadcast fallback: delayed so the DB update completes before we query,
+  // and the version guard in dedupedRefetch discards stale results if
+  // postgres_changes already patched during the fetch.
+  React.useEffect(() => {
+    if (!projectId) return
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const unsub = onPeerChange((payload) => {
+      const table = payload?.table as string | undefined
+      if (table && !["tasks", "task_assignees"].includes(table)) return
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => dedupedRefetch(projectId), 1500)
+    })
+    return () => {
+      unsub()
+      if (timer) clearTimeout(timer)
+    }
+  }, [projectId, dedupedRefetch])
 
   const handleTaskToggle = React.useCallback(async (taskId: string, completed: boolean) => {
     setTasks((prev) => prev?.map((t) => (t.id === taskId ? { ...t, completed } : t)) ?? null)
@@ -122,10 +262,13 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
   }, [projectId, fetchProjectTasks])
 
   function handleClose() {
+    setManualClose(true)
     const params = new URLSearchParams(searchParams.toString())
     params.delete("project")
     const qs = params.toString()
-    router.push(qs ? `/?${qs}` : "/", { scroll: false })
+    React.startTransition(() => {
+      router.push(qs ? `/?${qs}` : "/", { scroll: false })
+    })
   }
 
   function handleOpenChange(open: boolean) {

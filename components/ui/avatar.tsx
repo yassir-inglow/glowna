@@ -8,7 +8,6 @@ import { HugeiconsIcon } from "@hugeicons/react"
 
 import { cn } from "@/lib/utils"
 
-type AvatarStatus = "online" | "offline" | "busy" | "away"
 type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl"
 
 const AvatarContext = React.createContext<{ size?: AvatarSize }>({})
@@ -19,13 +18,6 @@ const fallbackTextSize: Record<AvatarSize, string> = {
   md: "text-text-sm",
   lg: "text-text-md",
   xl: "text-text-lg",
-}
-
-const statusStyles: Record<AvatarStatus, string> = {
-  online: "bg-green-500",
-  offline: "bg-gray-cool-300",
-  busy: "bg-red-500",
-  away: "bg-yellow-400",
 }
 
 const sizeStyles: Record<AvatarSize, string> = {
@@ -47,14 +39,18 @@ const sizeInPx: Record<AvatarSize, number> = {
 /**
  * Outer wrapper is a plain div (no overflow-hidden) so AvatarBadge can
  * peek outside the circle. The Radix Root inside handles clipping.
+ *
+ * When `active` is set, the avatar gets a brand-colored ring and full opacity
+ * (true) or a neutral ring and reduced opacity (false). Leave undefined for
+ * no presence styling.
  */
 function Avatar({
   className,
   size,
-  status,
+  active,
   children,
   ...props
-}: React.ComponentProps<"div"> & { size?: AvatarSize; status?: AvatarStatus }) {
+}: React.ComponentProps<"div"> & { size?: AvatarSize; active?: boolean }) {
   return (
     <AvatarContext.Provider value={{ size }}>
     <div
@@ -62,6 +58,9 @@ function Avatar({
       className={cn(
         "relative inline-flex shrink-0 rounded-full",
         size && sizeStyles[size],
+        active !== undefined && "ring-[1.5px] transition-[opacity,ring-color] duration-300",
+        active === true && "opacity-100 ring-brand-500",
+        active === false && "opacity-50 ring-white",
         className
       )}
       {...props}
@@ -69,18 +68,6 @@ function Avatar({
       <AvatarPrimitive.Root className="h-full w-full overflow-hidden rounded-full">
         {children}
       </AvatarPrimitive.Root>
-
-      {status && (
-        <span
-          data-slot="avatar-status"
-          data-status={status}
-          aria-label={status}
-          className={cn(
-            "absolute bottom-0 right-0 size-[30%] min-h-2 min-w-2 rounded-full ring-[1.5px] ring-white",
-            statusStyles[status]
-          )}
-        />
-      )}
     </div>
     </AvatarContext.Provider>
   )
@@ -132,8 +119,17 @@ function AvatarFallback({
  */
 function AvatarGroup({
   className,
+  children,
   ...props
 }: React.ComponentProps<"div">) {
+  const count = React.Children.count(children)
+  const styledChildren = React.Children.map(children, (child, i) => {
+    if (!React.isValidElement(child)) return child
+    return React.cloneElement(child as React.ReactElement<{ style?: React.CSSProperties }>, {
+      style: { ...((child as React.ReactElement<{ style?: React.CSSProperties }>).props.style), zIndex: count - i },
+    })
+  })
+
   return (
     <div
       data-slot="avatar-group"
@@ -142,7 +138,9 @@ function AvatarGroup({
         className
       )}
       {...props}
-    />
+    >
+      {styledChildren}
+    </div>
   )
 }
 
@@ -266,4 +264,4 @@ function AvatarGroupSkeleton({
 }
 
 export { Avatar, AvatarImage, AvatarFallback, AvatarAvvvatars, AvatarGroup, AvatarAddButton, AvatarSkeleton, AvatarGroupSkeleton }
-export type { AvatarStatus, AvatarSize }
+export type { AvatarSize }

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useBroadcastSync } from "@/hooks/use-broadcast-sync"
 
 type UserData = {
   id: string
@@ -51,6 +52,8 @@ export function UserProvider({
     }),
     [id, email, fullName, avatarUrl, displayName, firstName],
   )
+
+  useBroadcastSync()
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>
 }

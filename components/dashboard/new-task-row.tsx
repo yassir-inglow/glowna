@@ -1,45 +1,97 @@
 "use client"
 
 import * as React from "react"
-import { Folder01Icon } from "@hugeicons/core-free-icons"
+import { Folder01Icon, Calendar03Icon, PlusSignIcon, Search01Icon, Tick01Icon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Popover as PopoverPrimitive } from "radix-ui"
+import type { DateRange } from "react-day-picker"
+
+import { cn } from "@/lib/utils"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Avatar, AvatarAvvvatars, AvatarImage } from "@/components/ui/avatar"
+import { Calendar, RangeCalendar } from "@/components/ui/calendar"
 import { createTask } from "@/app/actions"
 import { markMutation } from "@/hooks/mutation-tracker"
+import type { ProjectMember } from "@/lib/data"
 
 type NewTaskRowProps = {
   projectId?: string
   projects?: { id: string; title: string }[]
-  onDone: () => void
+  members?: ProjectMember[]
+  onDone?: () => void
   onCreated?: () => void
 }
 
-export function NewTaskRow({ projectId, projects, onDone, onCreated }: NewTaskRowProps) {
+export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: NewTaskRowProps) {
+  const rowRef = React.useRef<HTMLDivElement>(null)
   const inputRef = React.useRef<HTMLInputElement>(null)
   const [selectedProjectId, setSelectedProjectId] = React.useState(
     projectId ?? projects?.[0]?.id ?? "",
   )
   const [saving, setSaving] = React.useState<string | null>(null)
   const submittedRef = React.useRef(false)
+  const [calendarOpen, setCalendarOpen] = React.useState(false)
+  const [assigneeOpen, setAssigneeOpen] = React.useState(false)
+  const [rangeMode, setRangeMode] = React.useState(false)
+  const [dueDate, setDueDate] = React.useState<Date | undefined>()
+  const [dateRange, setDateRange] = React.useState<DateRange | undefined>()
+  const [selectedAssigneeIds, setSelectedAssigneeIds] = React.useState<string[]>([])
 
   React.useEffect(() => {
     inputRef.current?.focus()
   }, [])
 
+  function reset() {
+    if (inputRef.current) inputRef.current.value = ""
+    submittedRef.current = false
+    setSaving(null)
+    setDueDate(undefined)
+    setDateRange(undefined)
+    setRangeMode(false)
+    setCalendarOpen(false)
+    setAssigneeOpen(false)
+    setSelectedAssigneeIds([])
+  }
+
+  function formatDateForDb(date: Date | undefined): string | null {
+    if (!date) return null
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
+  }
+
   function handleSubmit() {
     if (submittedRef.current) return
     const title = inputRef.current?.value.trim()
     if (!title || !selectedProjectId) {
-      onDone()
+      onDone?.()
       return
     }
     submittedRef.current = true
     setSaving(title)
     markMutation("tasks")
 
-    createTask(selectedProjectId, title)
-      .then(() => { onCreated?.(); onDone() })
-      .catch(() => onDone())
+    const dueDateVal = rangeMode ? formatDateForDb(dateRange?.from) : formatDateForDb(dueDate)
+    const dueDateEndVal = rangeMode ? formatDateForDb(dateRange?.to) : null
+
+    createTask(selectedProjectId, title, {
+      dueDate: dueDateVal,
+      dueDateEnd: dueDateEndVal,
+      assigneeIds: selectedAssigneeIds.length > 0 ? selectedAssigneeIds : undefined,
+    })
+      .then(() => {
+        onCreated?.()
+        if (onDone) {
+          onDone()
+        } else {
+          reset()
+          requestAnimationFrame(() => inputRef.current?.focus())
+        }
+      })
+      .catch(() => {
+        if (onDone) onDone()
+        else reset()
+      })
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -48,17 +100,20 @@ export function NewTaskRow({ projectId, projects, onDone, onCreated }: NewTaskRo
       handleSubmit()
     }
     if (e.key === "Escape") {
-      onDone()
+      if (onDone) onDone()
+      else reset()
     }
   }
 
-  function handleBlur() {
+  function handleBlur(e: React.FocusEvent) {
     if (submittedRef.current) return
+    if (calendarOpen || assigneeOpen) return
+    if (rowRef.current?.contains(e.relatedTarget as Node)) return
     const title = inputRef.current?.value.trim()
     if (title && selectedProjectId) {
       handleSubmit()
     } else {
-      onDone()
+      onDone?.()
     }
   }
 
@@ -95,42 +150,260 @@ export function NewTaskRow({ projectId, projects, onDone, onCreated }: NewTaskRo
     )
   }
 
+  const dateLabel = rangeMode && dateRange?.from
+    ? `${dateRange.from.toLocaleDateString("en-US", { month: "short", day: "numeric" })}${dateRange.to ? ` – ${dateRange.to.toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}`
+    : dueDate
+      ? dueDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      : "Date"
+
   return (
-    <div className="flex w-full items-center justify-between border-b border-gray-cool-100 px-4 py-4">
-      <div className="flex items-center gap-2">
-        <Checkbox checked={false} disabled />
-        <input
-          ref={inputRef}
-          type="text"
-          placeholder="Task name…"
-          onKeyDown={handleKeyDown}
-          onBlur={handleBlur}
-          className="bg-transparent text-text-md font-medium text-gray-cool-700 placeholder:text-gray-cool-300 outline-none"
+    <div ref={rowRef} onBlur={handleBlur} className="flex w-full items-center justify-between border-b border-gray-cool-100 px-4 py-4">
+      <div className="flex flex-col gap-0.5">
+        <div className="flex items-center gap-2">
+          <Checkbox checked={false} disabled />
+          <input
+            ref={inputRef}
+            type="text"
+            placeholder="Task name…"
+            onKeyDown={handleKeyDown}
+            className="bg-transparent text-text-md font-medium text-gray-cool-700 placeholder:text-gray-cool-300 outline-none"
+          />
+        </div>
+
+        <div className="flex items-center pl-[22px]">
+          <PopoverPrimitive.Root open={calendarOpen} onOpenChange={setCalendarOpen}>
+            <PopoverPrimitive.Trigger asChild>
+              <Button variant="ghost" size="xxs" leadingIcon={Calendar03Icon}>
+                {dateLabel}
+              </Button>
+            </PopoverPrimitive.Trigger>
+            <PopoverPrimitive.Portal>
+              <PopoverPrimitive.Content
+                side="bottom"
+                align="start"
+                sideOffset={8}
+                className="z-50 overflow-clip rounded-2xl border border-gray-cool-100 bg-white shadow-[0px_0px_4px_0px_rgba(93,107,152,0.08),0px_8px_16px_0px_rgba(93,107,152,0.08)] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
+                onClick={(e) => e.stopPropagation()}
+                onFocusOutside={(e) => e.preventDefault()}
+              >
+                {rangeMode ? (
+                  <RangeCalendar
+                    selected={dateRange}
+                    onSelect={setDateRange}
+                  />
+                ) : (
+                  <Calendar
+                    mode="single"
+                    selected={dueDate}
+                    onSelect={(date) => {
+                      setDueDate(date)
+                      setCalendarOpen(false)
+                    }}
+                  />
+                )}
+
+                <div className="flex flex-col border-t border-gray-cool-100">
+                  <div className="flex items-center justify-between px-3 py-2.5">
+                    <span className="text-text-sm font-medium text-gray-cool-700">Add an end date</span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={rangeMode}
+                      onClick={() => {
+                        if (rangeMode) {
+                          setDateRange(undefined)
+                        } else if (dueDate) {
+                          setDateRange({ from: dueDate, to: undefined })
+                          setDueDate(undefined)
+                        }
+                        setRangeMode(!rangeMode)
+                      }}
+                      className={cn(
+                        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors",
+                        rangeMode ? "bg-bg-brand" : "bg-gray-cool-200",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "pointer-events-none block size-3.5 rounded-full bg-white shadow-sm transition-transform",
+                          rangeMode ? "translate-x-[18px]" : "translate-x-[3px]",
+                        )}
+                      />
+                    </button>
+                  </div>
+
+                  {(dueDate || dateRange?.from) && (
+                    <div className="border-t border-gray-cool-100 p-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDueDate(undefined)
+                          setDateRange(undefined)
+                          setCalendarOpen(false)
+                        }}
+                        className="w-full rounded-full py-2 text-center text-text-sm font-medium text-gray-cool-500 transition-colors hover:bg-alpha-900 cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </PopoverPrimitive.Content>
+            </PopoverPrimitive.Portal>
+          </PopoverPrimitive.Root>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 shrink-0">
+        {showProjectPicker && (
+          <div className="relative shrink-0">
+            <Button
+              variant="secondary"
+              size="xxs"
+              leadingIcon={Folder01Icon}
+              className="pointer-events-none"
+            >
+              {selectedProject?.title ?? "Project"}
+            </Button>
+            <select
+              value={selectedProjectId}
+              onChange={(e) => setSelectedProjectId(e.target.value)}
+              onMouseDown={(e) => e.stopPropagation()}
+              className="absolute inset-0 cursor-pointer opacity-0"
+            >
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <PopoverPrimitive.Root open={assigneeOpen} onOpenChange={setAssigneeOpen}>
+          <PopoverPrimitive.Trigger asChild>
+            <button
+              type="button"
+              className="relative inline-flex shrink-0 items-center justify-center rounded-full border border-dashed border-gray-cool-200 bg-gray-cool-100 text-gray-cool-400 transition-colors hover:bg-gray-cool-200 hover:text-gray-cool-600 size-6 cursor-pointer outline-none"
+            >
+              <HugeiconsIcon icon={PlusSignIcon} size={12} color="currentColor" strokeWidth={2} />
+            </button>
+          </PopoverPrimitive.Trigger>
+          <PopoverPrimitive.Portal>
+            <PopoverPrimitive.Content
+              side="bottom"
+              align="end"
+              sideOffset={8}
+              className="z-50 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
+              onClick={(e) => e.stopPropagation()}
+              onFocusOutside={(e) => e.preventDefault()}
+            >
+              <LocalAssigneePicker
+                members={members ?? []}
+                selectedIds={selectedAssigneeIds}
+                onToggle={(id) => {
+                  setSelectedAssigneeIds((prev) =>
+                    prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+                  )
+                }}
+                onClear={() => setSelectedAssigneeIds([])}
+              />
+            </PopoverPrimitive.Content>
+          </PopoverPrimitive.Portal>
+        </PopoverPrimitive.Root>
+      </div>
+    </div>
+  )
+}
+
+function LocalAssigneePicker({
+  members,
+  selectedIds,
+  onToggle,
+  onClear,
+}: {
+  members: ProjectMember[]
+  selectedIds: string[]
+  onToggle: (id: string) => void
+  onClear: () => void
+}) {
+  const [search, setSearch] = React.useState("")
+
+  const filtered = React.useMemo(() => {
+    const q = search.toLowerCase().trim()
+    if (!q) return members
+    return members.filter(
+      (m) =>
+        m.full_name?.toLowerCase().includes(q) ||
+        m.email?.toLowerCase().includes(q),
+    )
+  }, [members, search])
+
+  return (
+    <div className="w-[240px] overflow-clip rounded-3xl border border-gray-cool-100 bg-white shadow-[0px_0px_4px_0px_rgba(93,107,152,0.08),0px_8px_16px_0px_rgba(93,107,152,0.08)]">
+      <div className="border-b border-gray-cool-100 p-2">
+        <Input
+          size="md"
+          leadingIcon={Search01Icon}
+          placeholder="Search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
-      {showProjectPicker && (
-        <div className="relative shrink-0">
-          <Button
-            variant="secondary"
-            size="xxs"
-            leadingIcon={Folder01Icon}
-            className="pointer-events-none"
+      <div className="flex flex-col max-h-[200px] overflow-y-auto scrollbar-hidden">
+        {filtered.length === 0 ? (
+          <p className="px-3 py-4 text-center text-text-xs font-medium text-gray-cool-400">
+            No members found
+          </p>
+        ) : (
+          filtered.map((member) => {
+            const isSelected = selectedIds.includes(member.id)
+            const name = member.full_name || member.email?.split("@")[0] || "Unknown"
+
+            return (
+              <button
+                key={member.id}
+                type="button"
+                onClick={() => onToggle(member.id)}
+                className="flex w-full items-center justify-between px-3 py-2 transition-colors hover:bg-alpha-900 cursor-pointer"
+              >
+                <div className="flex flex-1 items-center gap-2 min-w-0">
+                  <Avatar size="xs" className="shrink-0">
+                    {member.avatar_url ? (
+                      <AvatarImage src={member.avatar_url} alt="" />
+                    ) : (
+                      <AvatarAvvvatars value={member.full_name ?? member.email ?? member.id} />
+                    )}
+                  </Avatar>
+                  <span className="truncate text-text-sm font-medium text-gray-cool-500">
+                    {name}
+                  </span>
+                </div>
+                {isSelected && (
+                  <HugeiconsIcon
+                    icon={Tick01Icon}
+                    size={18}
+                    color="var(--color-brand-500)"
+                    strokeWidth={2}
+                    className="shrink-0"
+                  />
+                )}
+              </button>
+            )
+          })
+        )}
+      </div>
+
+      {selectedIds.length > 0 && (
+        <div className="border-t border-gray-cool-100 p-2">
+          <button
+            type="button"
+            onClick={onClear}
+            className="w-full rounded-full py-2 text-center text-text-sm font-medium text-gray-cool-500 transition-colors hover:bg-alpha-900 cursor-pointer"
           >
-            {selectedProject?.title ?? "Project"}
-          </Button>
-          <select
-            value={selectedProjectId}
-            onChange={(e) => setSelectedProjectId(e.target.value)}
-            onMouseDown={(e) => e.stopPropagation()}
-            className="absolute inset-0 cursor-pointer opacity-0"
-          >
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.title}
-              </option>
-            ))}
-          </select>
+            Clear
+          </button>
         </div>
       )}
     </div>

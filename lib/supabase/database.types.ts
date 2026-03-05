@@ -128,21 +128,18 @@ export type Database = {
           id: string
           profile_id: string
           project_id: string
-          role: string
         }
         Insert: {
           created_at?: string
           id?: string
           profile_id: string
           project_id: string
-          role?: string
         }
         Update: {
           created_at?: string
           id?: string
           profile_id?: string
           project_id?: string
-          role?: string
         }
         Relationships: [
           {
@@ -235,6 +232,8 @@ export type Database = {
           comment_count: number
           completed: boolean
           created_at: string
+          due_date: string | null
+          due_date_end: string | null
           id: string
           label_text: string | null
           position: number
@@ -250,6 +249,8 @@ export type Database = {
           comment_count?: number
           completed?: boolean
           created_at?: string
+          due_date?: string | null
+          due_date_end?: string | null
           id?: string
           label_text?: string | null
           position?: number
@@ -265,6 +266,8 @@ export type Database = {
           comment_count?: number
           completed?: boolean
           created_at?: string
+          due_date?: string | null
+          due_date_end?: string | null
           id?: string
           label_text?: string | null
           position?: number
@@ -299,6 +302,20 @@ export type Database = {
       get_pending_invitations: {
         Args: Record<PropertyKey, never>
         Returns: Json
+      }
+      is_project_member: {
+        Args: {
+          p_profile_id: string
+          p_project_id: string
+        }
+        Returns: boolean
+      }
+      is_project_owner: {
+        Args: {
+          p_profile_id: string
+          p_project_id: string
+        }
+        Returns: boolean
       }
     }
     Enums: {

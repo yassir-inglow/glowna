@@ -31,7 +31,7 @@ export function TaskContextMenu({
   onDelete,
   children,
 }: TaskContextMenuProps) {
-  const [isPending, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
   const router = useRouter()
 
   function handleOpen() {
@@ -53,7 +53,7 @@ export function TaskContextMenu({
 
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild disabled={isPending}>
+      <ContextMenuTrigger asChild>
         <div>{children}</div>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-[200px]">

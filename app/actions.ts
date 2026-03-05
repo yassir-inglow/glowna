@@ -83,7 +83,11 @@ export async function toggleTaskCompleted(taskId: string, completed: boolean) {
   revalidatePath(`/projects/${data.project_id}`)
 }
 
-export async function createTask(projectId: string, title: string) {
+export async function createTask(
+  projectId: string,
+  title: string,
+  options?: { dueDate?: string | null; dueDateEnd?: string | null; assigneeIds?: string[] },
+) {
   const { supabase, user } = await requireUser()
   await requireProjectAccess(supabase, user.id, projectId)
 
@@ -94,16 +98,22 @@ export async function createTask(projectId: string, title: string) {
       project_id: projectId,
       completed: false,
       user_id: user.id,
+      due_date: options?.dueDate ?? null,
+      due_date_end: options?.dueDateEnd ?? null,
     })
     .select("id, created_at")
     .single()
 
   if (error) throw error
 
-  await supabase.from("task_assignees").insert({
-    task_id: newTask.id,
-    profile_id: user.id,
-  })
+  if (options?.assigneeIds && options.assigneeIds.length > 0) {
+    await supabase.from("task_assignees").insert(
+      options.assigneeIds.map((profileId) => ({
+        task_id: newTask.id,
+        profile_id: profileId,
+      })),
+    )
+  }
 
   revalidatePath(`/projects/${projectId}`)
   revalidatePath("/")
@@ -114,6 +124,33 @@ export async function createTask(projectId: string, title: string) {
     projectId,
     title,
   }
+}
+
+export async function updateTaskDates(
+  taskId: string,
+  dueDate: string | null,
+  dueDateEnd: string | null,
+) {
+  const { supabase, user } = await requireUser()
+
+  const { data: task } = await supabase
+    .from("tasks")
+    .select("project_id")
+    .eq("id", taskId)
+    .single()
+
+  if (!task) throw new Error("Task not found")
+  await requireProjectAccess(supabase, user.id, task.project_id)
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({ due_date: dueDate, due_date_end: dueDateEnd })
+    .eq("id", taskId)
+
+  if (error) throw error
+
+  revalidatePath(`/projects/${task.project_id}`)
+  revalidatePath("/")
 }
 
 export async function deleteTask(taskId: string) {
@@ -519,4 +556,42 @@ export async function dismissNotification(notificationId: string) {
     .from("notifications")
     .update({ read: true })
     .eq("id", notificationId)
+}
+
+export async function toggleTaskAssignee(taskId: string, profileId: string) {
+  const { supabase, user } = await requireUser()
+  const task = await requireTaskAccess(supabase, user.id, taskId)
+
+  // Try INSERT first. If the row already exists (23505 unique violation),
+  // fall back to DELETE. This avoids a SELECT that can fail under RLS.
+  const { error: insertError } = await supabase
+    .from("task_assignees")
+    .insert({ task_id: taskId, profile_id: profileId })
+
+  if (insertError) {
+    if (insertError.code === "23505") {
+      const { error: deleteError } = await supabase
+        .from("task_assignees")
+        .delete()
+        .eq("task_id", taskId)
+        .eq("profile_id", profileId)
+      if (deleteError) throw deleteError
+    } else {
+      throw insertError
+    }
+  }
+
+  revalidatePath("/")
+  revalidatePath(`/projects/${task.project_id}`)
+}
+
+export async function clearTaskAssignees(taskId: string) {
+  const { supabase, user } = await requireUser()
+  const task = await requireTaskAccess(supabase, user.id, taskId)
+
+  const { error } = await supabase.from("task_assignees").delete().eq("task_id", taskId)
+  if (error) throw error
+
+  revalidatePath("/")
+  revalidatePath(`/projects/${task.project_id}`)
 }

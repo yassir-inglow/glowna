@@ -106,7 +106,7 @@ export function AppHeader() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button type="button" className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 focus-visible:ring-offset-2" suppressHydrationWarning>
-              <Avatar size="md" status="online" title={email}>
+              <Avatar size="md" title={email}>
                 {avatarUrl ? (
                   <AvatarImage src={avatarUrl} alt={displayName} />
                 ) : (
