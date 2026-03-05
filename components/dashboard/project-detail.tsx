@@ -10,7 +10,7 @@ import { SearchButton } from "@/components/dashboard/search-button"
 import { TaskRow } from "@/components/dashboard/task-row"
 import { TaskContextMenu } from "@/components/dashboard/task-context-menu"
 import { NewTaskRow } from "@/components/dashboard/new-task-row"
-import { InvitePopover } from "@/components/dashboard/invite-popover"
+import { SharePopover } from "@/components/dashboard/invite-popover"
 import { useRealtimeRefresh } from "@/hooks/use-realtime-refresh"
 import type { ProjectWithMembers, TaskWithProject } from "@/lib/data"
 
@@ -69,7 +69,7 @@ export function ProjectDetail({ project, tasks, onDeleteTask, onTaskToggle, onTa
               ))}
             </AvatarGroup>
           )}
-          <InvitePopover projectId={project.id} />
+          <SharePopover projectId={project.id} members={project.members} ownerId={project.user_id} />
         </div>
       </div>
 
