@@ -2,13 +2,13 @@
 
 import { useState, useTransition } from "react"
 import { Popover as PopoverPrimitive } from "radix-ui"
-import { SentIcon, UserGroupIcon } from "@hugeicons/core-free-icons"
+import { Delete02Icon, SentIcon, UserGroupIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarAvvvatars, AvatarImage } from "@/components/ui/avatar"
-import { inviteToProject } from "@/app/actions"
+import { inviteToProject, removeProjectMember } from "@/app/actions"
 import { useUser } from "@/components/dashboard/user-provider"
 import { cn } from "@/lib/utils"
 import type { ProjectMember } from "@/lib/data"
@@ -24,8 +24,10 @@ export function SharePopover({ projectId, members, ownerId, className }: SharePo
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState("")
   const [isPending, startTransition] = useTransition()
+  const [removingId, setRemovingId] = useState<string | null>(null)
   const [result, setResult] = useState<{ type: "success" | "error"; message: string } | null>(null)
   const user = useUser()
+  const isCurrentUserOwner = user.id === ownerId
 
   const hasInput = email.trim().length > 0
 
@@ -54,6 +56,17 @@ export function SharePopover({ projectId, members, ownerId, className }: SharePo
       setEmail("")
       setResult(null)
     }
+  }
+
+  function handleRemoveMember(memberId: string) {
+    setRemovingId(memberId)
+    startTransition(async () => {
+      const res = await removeProjectMember(projectId, memberId)
+      setRemovingId(null)
+      if (!res.success) {
+        setResult({ type: "error", message: res.error ?? "Failed to remove member" })
+      }
+    })
   }
 
   return (
@@ -135,11 +148,16 @@ export function SharePopover({ projectId, members, ownerId, className }: SharePo
                   const isYou = member.id === user.id
                   const isOwner = member.id === ownerId
                   const name = member.full_name || member.email?.split("@")[0] || "Unknown"
+                  const canRemove = !isOwner && (isCurrentUserOwner || isYou)
+                  const isRemoving = removingId === member.id
 
                   return (
                     <div
                       key={member.id}
-                      className="flex items-center gap-2.5 rounded-lg px-1 py-1.5"
+                      className={cn(
+                        "group flex items-center gap-2.5 rounded-lg px-1 py-1.5",
+                        isRemoving && "opacity-50",
+                      )}
                     >
                       <Avatar size="sm" className="shrink-0">
                         {member.avatar_url ? (
@@ -167,11 +185,22 @@ export function SharePopover({ projectId, members, ownerId, className }: SharePo
                         )}
                       </div>
 
-                      {isOwner && (
+                      {isOwner ? (
                         <span className="shrink-0 text-text-xs font-medium text-gray-cool-400">
                           Owner
                         </span>
-                      )}
+                      ) : canRemove ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-xxs"
+                          disabled={isRemoving}
+                          onClick={() => handleRemoveMember(member.id)}
+                          className="shrink-0 opacity-0 group-hover:opacity-100 text-gray-cool-400 hover:text-red-500 hover:bg-red-50 transition-opacity"
+                        >
+                          <HugeiconsIcon icon={Delete02Icon} size={14} color="currentColor" strokeWidth={1.5} />
+                        </Button>
+                      ) : null}
                     </div>
                   )
                 })}

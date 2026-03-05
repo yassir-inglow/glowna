@@ -42,6 +42,7 @@ export function ProjectDetail({ project, tasks, onDeleteTask, onTaskToggle, onTa
   )
 
   useRealtimeRefresh({ table: "tasks", filter: `project_id=eq.${project.id}`, enabled: enableRealtimeRefresh })
+  useRealtimeRefresh({ table: "project_members", filter: `project_id=eq.${project.id}`, enabled: enableRealtimeRefresh })
 
   return (
     <div className="space-y-6">

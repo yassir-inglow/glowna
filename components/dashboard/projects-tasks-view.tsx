@@ -41,6 +41,7 @@ export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
   )
 
   useRealtimeRefresh({ table: "tasks" })
+  useRealtimeRefresh({ table: "project_members" })
 
   const handleProjectSelect = React.useCallback(
     (projectId: string) => {

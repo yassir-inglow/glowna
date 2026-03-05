@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { getResendClient } from "@/lib/resend"
 import { projectInviteEmail } from "@/lib/emails/project-invite"
+import { projectRemovedEmail } from "@/lib/emails/project-removed"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { headers } from "next/headers"
@@ -199,6 +200,76 @@ export async function deleteProject(projectId: string) {
   if (error) throw error
 
   revalidatePath("/")
+}
+
+export async function removeProjectMember(
+  projectId: string,
+  memberId: string,
+): Promise<{ success: boolean; error?: string }> {
+  const { supabase, user } = await requireUser()
+
+  const [{ data: project }, { data: memberProfile }, { data: removerProfile }] =
+    await Promise.all([
+      supabase.from("projects").select("user_id, title").eq("id", projectId).single(),
+      supabase.from("profiles").select("email, full_name").eq("id", memberId).single(),
+      supabase.from("profiles").select("full_name, email").eq("id", user.id).single(),
+    ])
+
+  if (!project) return { success: false, error: "Project not found" }
+  if (project.user_id === memberId) return { success: false, error: "Cannot remove the project owner" }
+  if (project.user_id !== user.id && memberId !== user.id) {
+    return { success: false, error: "Only the owner can remove members" }
+  }
+
+  const { error } = await supabase
+    .from("project_members")
+    .delete()
+    .eq("project_id", projectId)
+    .eq("profile_id", memberId)
+
+  if (error) return { success: false, error: "Failed to remove member" }
+
+  const projectName = project.title ?? "Untitled project"
+  const removerName = removerProfile?.full_name ?? removerProfile?.email ?? "Someone"
+
+  // Insert in-app notification for the removed member
+  await supabase.from("notifications").insert({
+    user_id: memberId,
+    type: "removed_from_project",
+    data: {
+      project_name: projectName,
+      remover_name: removerName,
+      project_id: projectId,
+    },
+  })
+
+  // Send email to the removed member
+  if (memberProfile?.email) {
+    const headerList = await headers()
+    const host = headerList.get("host") ?? "localhost:3000"
+    const protocol = headerList.get("x-forwarded-proto") ?? "http"
+    const dashboardUrl = `${protocol}://${host}`
+
+    const { subject, html } = projectRemovedEmail({
+      projectName,
+      removerName,
+      dashboardUrl,
+    })
+
+    const resend = getResendClient()
+    if (resend) {
+      await resend.emails.send({
+        from: "Glowna <onboarding@resend.dev>",
+        to: memberProfile.email,
+        subject,
+        html,
+      }).catch(() => {})
+    }
+  }
+
+  revalidatePath("/")
+  revalidatePath(`/projects/${projectId}`)
+  return { success: true }
 }
 
 export async function updateProfile(fullName: string) {
@@ -439,4 +510,13 @@ export async function declineInvitation(
 
   revalidatePath("/")
   return { success: true }
+}
+
+export async function dismissNotification(notificationId: string) {
+  const { supabase } = await requireUser()
+
+  await supabase
+    .from("notifications")
+    .update({ read: true })
+    .eq("id", notificationId)
 }
