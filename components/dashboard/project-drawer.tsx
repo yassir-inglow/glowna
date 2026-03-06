@@ -260,6 +260,10 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
     await toggleTaskCompleted(taskId, completed)
   }, [])
 
+  const handleTaskTitleChange = React.useCallback((taskId: string, title: string) => {
+    setTasks((prev) => prev?.map((t) => (t.id === taskId ? { ...t, title } : t)) ?? null)
+  }, [])
+
   const handleTaskCreated = React.useCallback(async () => {
     if (!projectId) return
     const result = await fetchProjectTasks(projectId)
@@ -288,7 +292,7 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
         <div className="relative flex-1 overflow-hidden">
           <motion.div
             className="h-full w-full overflow-y-auto scrollbar-hidden"
-            animate={{ x: selectedTask ? -100 : 0 }}
+            animate={{ x: selectedTaskId ? -100 : 0 }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
           >
             <div className="mx-auto w-full max-w-[1100px] p-6">
@@ -311,11 +315,12 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
           <AnimatePresence>
             {selectedTask && project && (
               <TaskDetailPanel
-                key={selectedTask.id}
+                key="task-panel"
                 task={selectedTask}
                 members={project.members}
                 onClose={() => setSelectedTaskId(null)}
                 onTaskToggle={handleTaskToggle}
+                onTitleChange={handleTaskTitleChange}
               />
             )}
           </AnimatePresence>

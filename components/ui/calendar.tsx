@@ -266,10 +266,18 @@ function RangeCalendar({
 
   function handleCalendarSelect(_range: DateRange | undefined, selectedDay: Date) {
     if (activeField === "start") {
-      onSelect?.({ from: selectedDay, to: selected?.to })
+      if (selected?.to && selectedDay > selected.to) {
+        onSelect?.({ from: selected.to, to: selectedDay })
+      } else {
+        onSelect?.({ from: selectedDay, to: selected?.to })
+      }
       setActiveField("end")
     } else {
-      onSelect?.({ from: selected?.from, to: selectedDay })
+      if (selected?.from && selectedDay < selected.from) {
+        onSelect?.({ from: selectedDay, to: selected.from })
+      } else {
+        onSelect?.({ from: selected?.from, to: selectedDay })
+      }
       setActiveField("start")
     }
   }
@@ -279,7 +287,11 @@ function RangeCalendar({
     setFromInput(value)
     const date = parseDate(value)
     if (date) {
-      onSelect?.({ from: date, to: selected?.to })
+      if (selected?.to && date > selected.to) {
+        onSelect?.({ from: selected.to, to: date })
+      } else {
+        onSelect?.({ from: date, to: selected?.to })
+      }
     }
   }
 
@@ -288,7 +300,11 @@ function RangeCalendar({
     setToInput(value)
     const date = parseDate(value)
     if (date) {
-      onSelect?.({ from: selected?.from, to: date })
+      if (selected?.from && date < selected.from) {
+        onSelect?.({ from: date, to: selected.from })
+      } else {
+        onSelect?.({ from: selected?.from, to: date })
+      }
     }
   }
 

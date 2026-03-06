@@ -1,10 +1,17 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { TaskRow, TaskRowSkeleton } from "./task-row";
+import type { ProjectMember } from "@/lib/data";
 
 const sampleAvatars = [
   { fallback: "A" },
   { fallback: "B" },
+];
+
+const sampleMembers: ProjectMember[] = [
+  { id: "u1", full_name: "Alice Brown", email: "alice@example.com", avatar_url: null },
+  { id: "u2", full_name: "Bob Smith", email: "bob@example.com", avatar_url: null },
+  { id: "u3", full_name: "Carol Johnson", email: "carol@example.com", avatar_url: null },
 ];
 
 const meta: Meta<typeof TaskRow> = {
@@ -161,6 +168,28 @@ export const Skeleton: Story = {
   ],
 };
 
+// ─── Assignee Dropdown ──────────────────────────────────────
+
+export const WithAssigneeDropdown: Story = {
+  args: {
+    id: "task-1",
+    title: "Redesign landing page",
+    members: sampleMembers,
+    assignedIds: ["u1"],
+    avatars: [{ fallback: "AB", value: "Alice Brown" }],
+  },
+};
+
+export const WithAssigneeEmpty: Story = {
+  args: {
+    id: "task-2",
+    title: "Fix authentication bug",
+    members: sampleMembers,
+    assignedIds: [],
+    avatars: [],
+  },
+};
+
 // ─── Gallery ───────────────────────────────────────────────
 
 export const List: Story = {
@@ -208,6 +237,53 @@ export const List: Story = {
           showAddons={false}
           projectName="Platform"
           avatars={[{ fallback: "B" }]}
+        />
+      </div>
+    ),
+  ],
+};
+
+export const ListWithAssignees: Story = {
+  decorators: [
+    () => (
+      <div className="w-[1052px] rounded-xl overflow-hidden">
+        <TaskRow
+          id="t1"
+          title="Redesign landing page"
+          onCompletedChange={async () => {}}
+          subTaskCurrent={3}
+          subTaskTotal={5}
+          addText="Text"
+          labelText="Design"
+          commentCount={4}
+          projectName="Brand"
+          members={sampleMembers}
+          assignedIds={["u1", "u2"]}
+          avatars={[{ fallback: "AB", value: "Alice Brown" }, { fallback: "BS", value: "Bob Smith" }]}
+        />
+        <TaskRow
+          id="t2"
+          title="Fix authentication bug"
+          onCompletedChange={async () => {}}
+          subTaskCurrent={0}
+          subTaskTotal={3}
+          addText="Add"
+          labelText="Bug"
+          commentCount={1}
+          projectName="Platform"
+          members={sampleMembers}
+          assignedIds={["u3"]}
+          avatars={[{ fallback: "CJ", value: "Carol Johnson" }]}
+        />
+        <TaskRow
+          id="t3"
+          title="Write release notes"
+          onCompletedChange={async () => {}}
+          showAddons={false}
+          projectName="Internal"
+          members={sampleMembers}
+          assignedIds={[]}
+          avatars={[]}
         />
       </div>
     ),

@@ -10,8 +10,9 @@ import { cn } from "@/lib/utils"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Avatar, AvatarAvvvatars, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarAvvvatars, AvatarGroup, AvatarImage } from "@/components/ui/avatar"
 import { Calendar, RangeCalendar } from "@/components/ui/calendar"
+import { Switch } from "@/components/ui/switch"
 import { createTask } from "@/app/actions"
 import { markMutation } from "@/hooks/mutation-tracker"
 import type { ProjectMember } from "@/lib/data"
@@ -124,9 +125,9 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
     return (
       <div className="relative border-b border-gray-cool-100">
         <div className="flex w-full items-center justify-between px-4 py-4">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-1 min-w-0 items-center gap-2">
             <Checkbox checked={false} disabled />
-            <span className="text-text-md font-medium text-gray-cool-700">
+            <span className="text-text-md font-medium truncate text-gray-cool-700">
               {saving}
             </span>
           </div>
@@ -158,7 +159,7 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
 
   return (
     <div ref={rowRef} onBlur={handleBlur} className="flex w-full items-center justify-between border-b border-gray-cool-100 px-4 py-4">
-      <div className="flex flex-col gap-0.5">
+      <div className="flex flex-1 min-w-0 flex-col gap-0.5">
         <div className="flex items-center gap-2">
           <Checkbox checked={false} disabled />
           <input
@@ -166,7 +167,7 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
             type="text"
             placeholder="Task name…"
             onKeyDown={handleKeyDown}
-            className="bg-transparent text-text-md font-medium text-gray-cool-700 placeholder:text-gray-cool-300 outline-none"
+            className="flex-1 min-w-0 bg-transparent text-text-md font-medium text-gray-cool-700 placeholder:text-gray-cool-300 outline-none"
           />
         </div>
 
@@ -203,13 +204,11 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
                 )}
 
                 <div className="flex flex-col border-t border-gray-cool-100">
-                  <div className="flex items-center justify-between px-3 py-2.5">
-                    <span className="text-text-sm font-medium text-gray-cool-700">Add an end date</span>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={rangeMode}
-                      onClick={() => {
+                  <div className="px-3 py-2.5">
+                    <Switch
+                      label="Add an end date"
+                      checked={rangeMode}
+                      onCheckedChange={() => {
                         if (rangeMode) {
                           setDateRange(undefined)
                         } else if (dueDate) {
@@ -218,18 +217,7 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
                         }
                         setRangeMode(!rangeMode)
                       }}
-                      className={cn(
-                        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors",
-                        rangeMode ? "bg-bg-brand" : "bg-gray-cool-200",
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "pointer-events-none block size-3.5 rounded-full bg-white shadow-sm transition-transform",
-                          rangeMode ? "translate-x-[18px]" : "translate-x-[3px]",
-                        )}
-                      />
-                    </button>
+                    />
                   </div>
 
                   {(dueDate || dateRange?.from) && (
@@ -282,11 +270,27 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
 
         <PopoverPrimitive.Root open={assigneeOpen} onOpenChange={setAssigneeOpen}>
           <PopoverPrimitive.Trigger asChild>
-            <button
-              type="button"
-              className="relative inline-flex shrink-0 items-center justify-center rounded-full border border-dashed border-gray-cool-200 bg-gray-cool-100 text-gray-cool-400 transition-colors hover:bg-gray-cool-200 hover:text-gray-cool-600 size-6 cursor-pointer outline-none"
-            >
-              <HugeiconsIcon icon={PlusSignIcon} size={12} color="currentColor" strokeWidth={2} />
+            <button type="button" className="flex items-center cursor-pointer outline-none">
+              {selectedAssigneeIds.length > 0 && members ? (
+                <AvatarGroup>
+                  {selectedAssigneeIds
+                    .map((id) => members.find((m) => m.id === id))
+                    .filter(Boolean)
+                    .map((m) => (
+                      <Avatar key={m!.id} size="xs" className="ring-[1.5px] ring-white">
+                        {m!.avatar_url ? (
+                          <AvatarImage src={m!.avatar_url} alt="" />
+                        ) : (
+                          <AvatarAvvvatars value={m!.full_name ?? m!.email ?? m!.id} />
+                        )}
+                      </Avatar>
+                    ))}
+                </AvatarGroup>
+              ) : (
+                <span className="relative inline-flex shrink-0 items-center justify-center rounded-full border border-dashed border-gray-cool-200 bg-gray-cool-100 text-gray-cool-400 transition-colors hover:bg-gray-cool-200 hover:text-gray-cool-600 size-6">
+                  <HugeiconsIcon icon={PlusSignIcon} size={12} color="currentColor" strokeWidth={2} />
+                </span>
+              )}
             </button>
           </PopoverPrimitive.Trigger>
           <PopoverPrimitive.Portal>

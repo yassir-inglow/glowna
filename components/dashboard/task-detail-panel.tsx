@@ -9,6 +9,7 @@ import { Popover as PopoverPrimitive } from "radix-ui"
 
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Switch } from "@/components/ui/switch"
 import { Calendar, RangeCalendar } from "@/components/ui/calendar"
 import { Avatar, AvatarAvvvatars, AvatarGroup, AvatarImage } from "@/components/ui/avatar"
 import { AssigneePicker } from "@/components/dashboard/assignee-popover"
@@ -29,37 +30,85 @@ type TaskDetailPanelProps = {
   members: ProjectMember[]
   onClose: () => void
   onTaskToggle?: (taskId: string, completed: boolean) => Promise<void>
+  onTitleChange?: (taskId: string, title: string) => void
 }
 
-export function TaskDetailPanel({ task, members, onClose, onTaskToggle }: TaskDetailPanelProps) {
+export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleChange }: TaskDetailPanelProps) {
   const [, startTransition] = useTransition()
 
   // ── Title ──────────────────────────────────────────────────────────────────
   const [title, setTitle] = useState(task.title)
-  const titleRef = useRef(task.title)
+  const savedTitleRef = useRef(task.title)
   const inputRef = useRef<HTMLInputElement>(null)
+  const isEditingRef = useRef(false)
 
+  // Reset all local state when switching to a different task (stable key means no remount)
+  const taskIdRef = useRef(task.id)
   useEffect(() => {
-    if (task.title !== titleRef.current) {
-      titleRef.current = task.title
+    if (taskIdRef.current === task.id) return
+    taskIdRef.current = task.id
+    isEditingRef.current = false
+    setTitle(task.title)
+    savedTitleRef.current = task.title
+    setCompleted(task.completed)
+    setCalendarOpen(false)
+    setRangeMode(!!task.due_date_end)
+    setDueDate(task.due_date && !task.due_date_end ? new Date(task.due_date + "T00:00:00") : undefined)
+    setDateRange(
+      task.due_date && task.due_date_end
+        ? { from: new Date(task.due_date + "T00:00:00"), to: new Date(task.due_date_end + "T00:00:00") }
+        : undefined,
+    )
+    const ids = task.task_assignees.map((a) => a.profiles?.id).filter(Boolean) as string[]
+    setLocalAssignedIds(ids)
+  }, [task])
+
+  // Delay focus until the slide-in animation settles to prevent visual glitch
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const el = inputRef.current
+      if (el) {
+        el.focus()
+        el.setSelectionRange(el.value.length, el.value.length)
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [task.id])
+
+  // Sync from parent only when an external source updates the title (not our own edits)
+  useEffect(() => {
+    if (!isEditingRef.current && task.title !== savedTitleRef.current) {
+      savedTitleRef.current = task.title
       setTitle(task.title)
     }
   }, [task.title])
 
-  function handleTitleBlur() {
+  function handleTitleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    isEditingRef.current = true
+    const value = e.target.value
+    setTitle(value)
+    onTitleChange?.(task.id, value)
+  }
+
+  function saveTitle() {
+    isEditingRef.current = false
     const trimmed = title.trim()
-    if (!trimmed || trimmed === titleRef.current) {
-      setTitle(titleRef.current)
+    if (!trimmed || trimmed === savedTitleRef.current) {
+      setTitle(savedTitleRef.current)
+      onTitleChange?.(task.id, savedTitleRef.current)
       return
     }
-    titleRef.current = trimmed
+    savedTitleRef.current = trimmed
+    setTitle(trimmed)
+    onTitleChange?.(task.id, trimmed)
     markMutation("tasks")
     startTransition(async () => {
       try {
         await updateTaskTitle(task.id, trimmed)
       } catch {
         setTitle(task.title)
-        titleRef.current = task.title
+        savedTitleRef.current = task.title
+        onTitleChange?.(task.id, task.title)
       }
     })
   }
@@ -146,9 +195,9 @@ export function TaskDetailPanel({ task, members, onClose, onTaskToggle }: TaskDe
         <input
           ref={inputRef}
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onBlur={handleTitleBlur}
-          onKeyDown={(e) => { if (e.key === "Enter") inputRef.current?.blur() }}
+          onChange={handleTitleChange}
+          onBlur={saveTitle}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); saveTitle(); inputRef.current?.blur() } }}
           className="flex-1 bg-transparent text-display-xs font-medium text-gray-cool-800 outline-none placeholder:text-gray-cool-300"
           placeholder="Task title"
         />
@@ -221,13 +270,11 @@ export function TaskDetailPanel({ task, members, onClose, onTaskToggle }: TaskDe
                     }}
                   />
                 )}
-                <div className="flex items-center justify-between border-t border-gray-cool-100 px-3 py-2.5">
-                  <span className="text-text-sm font-medium text-gray-cool-700">End date</span>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={rangeMode}
-                    onClick={() => {
+                <div className="border-t border-gray-cool-100 px-3 py-2.5">
+                  <Switch
+                    label="End date"
+                    checked={rangeMode}
+                    onCheckedChange={() => {
                       if (rangeMode) {
                         const prevRange = dateRange
                         setDateRange(undefined)
@@ -242,10 +289,7 @@ export function TaskDetailPanel({ task, members, onClose, onTaskToggle }: TaskDe
                       }
                       setRangeMode(!rangeMode)
                     }}
-                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors ${rangeMode ? "bg-bg-brand" : "bg-gray-cool-200"}`}
-                  >
-                    <span className={`pointer-events-none block size-3.5 rounded-full bg-white shadow-sm transition-transform ${rangeMode ? "translate-x-[18px]" : "translate-x-[3px]"}`} />
-                  </button>
+                  />
                 </div>
               </PopoverPrimitive.Content>
             </PopoverPrimitive.Portal>
