@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { TaskRow, TaskRowSkeleton } from "./task-row";
 import type { ProjectMember } from "@/lib/data";
+import type { Priority } from "@/components/dashboard/priority-picker";
 
 const sampleAvatars = [
   { fallback: "A" },
@@ -82,9 +83,17 @@ const meta: Meta<typeof TaskRow> = {
       control: "boolean",
       description: "Highlighted / selected row state",
     },
+    priority: {
+      control: "select",
+      options: ["none", "low", "medium", "high", "urgent"],
+      description: "Task priority level",
+    },
+    onPriorityChange: {
+      table: { disable: true },
+    },
   },
   args: {
-    id: undefined,
+    id: "task-story",
     title: "Project name",
     completed: false,
     onCompletedChange: async () => {},
@@ -97,6 +106,7 @@ const meta: Meta<typeof TaskRow> = {
     projectName: "Project name",
     avatars: sampleAvatars,
     selected: false,
+    priority: "none",
   },
   decorators: [
     (Story) => (
@@ -154,6 +164,44 @@ export const Minimal: Story = {
   },
 };
 
+// ─── Priority ───────────────────────────────────────────────
+
+export const PriorityUrgent: Story = {
+  args: {
+    title: "Fix critical production bug",
+    priority: "urgent",
+  },
+};
+
+export const PriorityHigh: Story = {
+  args: {
+    title: "Review pull request",
+    priority: "high",
+  },
+};
+
+export const PriorityMedium: Story = {
+  args: {
+    title: "Update documentation",
+    priority: "medium",
+  },
+};
+
+export const PriorityLow: Story = {
+  args: {
+    title: "Clean up old branches",
+    priority: "low",
+  },
+};
+
+export const PriorityNone: Story = {
+  args: {
+    title: "Backlog task",
+    priority: "none",
+    showAddons: false,
+  },
+};
+
 // ─── Skeleton ───────────────────────────────────────────────
 
 export const Skeleton: Story = {
@@ -197,6 +245,7 @@ export const List: Story = {
     () => (
       <div className="w-[1052px] rounded-xl overflow-hidden">
         <TaskRow
+          id="l1"
           title="Redesign landing page"
           onCompletedChange={async () => {}}
           subTaskCurrent={3}
@@ -206,8 +255,10 @@ export const List: Story = {
           commentCount={4}
           projectName="Brand"
           avatars={[{ fallback: "A" }, { fallback: "B" }]}
+          priority="urgent"
         />
         <TaskRow
+          id="l2"
           title="Fix authentication bug"
           completed
           onCompletedChange={async () => {}}
@@ -218,8 +269,10 @@ export const List: Story = {
           commentCount={1}
           projectName="Platform"
           avatars={[{ fallback: "C" }]}
+          priority="high"
         />
         <TaskRow
+          id="l3"
           title="Write release notes"
           onCompletedChange={async () => {}}
           subTaskCurrent={2}
@@ -230,13 +283,16 @@ export const List: Story = {
           projectName="Internal"
           avatars={[{ fallback: "A" }, { fallback: "D" }, { fallback: "E" }]}
           selected
+          priority="medium"
         />
         <TaskRow
+          id="l4"
           title="Update dependencies"
           onCompletedChange={async () => {}}
           showAddons={false}
           projectName="Platform"
           avatars={[{ fallback: "B" }]}
+          priority="low"
         />
       </div>
     ),
@@ -260,6 +316,7 @@ export const ListWithAssignees: Story = {
           members={sampleMembers}
           assignedIds={["u1", "u2"]}
           avatars={[{ fallback: "AB", value: "Alice Brown" }, { fallback: "BS", value: "Bob Smith" }]}
+          priority="high"
         />
         <TaskRow
           id="t2"
@@ -274,6 +331,7 @@ export const ListWithAssignees: Story = {
           members={sampleMembers}
           assignedIds={["u3"]}
           avatars={[{ fallback: "CJ", value: "Carol Johnson" }]}
+          priority="urgent"
         />
         <TaskRow
           id="t3"
@@ -284,6 +342,7 @@ export const ListWithAssignees: Story = {
           members={sampleMembers}
           assignedIds={[]}
           avatars={[]}
+          priority="none"
         />
       </div>
     ),

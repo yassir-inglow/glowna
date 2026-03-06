@@ -237,6 +237,7 @@ export type Database = {
           id: string
           label_text: string | null
           position: number
+          priority: string
           project_id: string
           sub_task_current: number
           sub_task_total: number
@@ -254,6 +255,7 @@ export type Database = {
           id?: string
           label_text?: string | null
           position?: number
+          priority?: string
           project_id: string
           sub_task_current?: number
           sub_task_total?: number
@@ -271,6 +273,7 @@ export type Database = {
           id?: string
           label_text?: string | null
           position?: number
+          priority?: string
           project_id?: string
           sub_task_current?: number
           sub_task_total?: number

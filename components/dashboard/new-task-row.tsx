@@ -15,6 +15,8 @@ import { Calendar, RangeCalendar } from "@/components/ui/calendar"
 import { Switch } from "@/components/ui/switch"
 import { createTask } from "@/app/actions"
 import { markMutation } from "@/hooks/mutation-tracker"
+import { PriorityPicker, PriorityButton } from "@/components/dashboard/priority-picker"
+import type { Priority } from "@/components/dashboard/priority-picker"
 import type { ProjectMember } from "@/lib/data"
 
 type NewTaskRowProps = {
@@ -39,6 +41,8 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
   const [dueDate, setDueDate] = React.useState<Date | undefined>()
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>()
   const [selectedAssigneeIds, setSelectedAssigneeIds] = React.useState<string[]>([])
+  const [priority, setPriority] = React.useState<Priority>("none")
+  const [priorityOpen, setPriorityOpen] = React.useState(false)
 
   React.useEffect(() => {
     inputRef.current?.focus()
@@ -54,6 +58,8 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
     setCalendarOpen(false)
     setAssigneeOpen(false)
     setSelectedAssigneeIds([])
+    setPriority("none")
+    setPriorityOpen(false)
   }
 
   function formatDateForDb(date: Date | undefined): string | null {
@@ -79,6 +85,7 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
       dueDate: dueDateVal,
       dueDateEnd: dueDateEndVal,
       assigneeIds: selectedAssigneeIds.length > 0 ? selectedAssigneeIds : undefined,
+      priority: priority !== "none" ? priority : undefined,
     })
       .then(() => {
         onCreated?.()
@@ -108,7 +115,7 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
 
   function handleBlur(e: React.FocusEvent) {
     if (submittedRef.current) return
-    if (calendarOpen || assigneeOpen) return
+    if (calendarOpen || assigneeOpen || priorityOpen) return
     if (rowRef.current?.contains(e.relatedTarget as Node)) return
     const title = inputRef.current?.value.trim()
     if (title && selectedProjectId) {
@@ -172,6 +179,33 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
         </div>
 
         <div className="flex items-center pl-[22px]">
+          <PopoverPrimitive.Root open={priorityOpen} onOpenChange={setPriorityOpen}>
+            <PopoverPrimitive.Trigger asChild>
+              <span data-slot="popover-trigger" className="cursor-pointer">
+                <PriorityButton priority={priority} />
+              </span>
+            </PopoverPrimitive.Trigger>
+            <PopoverPrimitive.Portal>
+              <PopoverPrimitive.Content
+                side="bottom"
+                align="start"
+                sideOffset={8}
+                className="z-50 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
+                onClick={(e) => e.stopPropagation()}
+                onFocusOutside={(e) => e.preventDefault()}
+              >
+                <PriorityPicker
+                  taskId=""
+                  priority={priority}
+                  onPriorityChange={(p) => {
+                    setPriority(p)
+                    setPriorityOpen(false)
+                  }}
+                />
+              </PopoverPrimitive.Content>
+            </PopoverPrimitive.Portal>
+          </PopoverPrimitive.Root>
+
           <PopoverPrimitive.Root open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverPrimitive.Trigger asChild>
               <Button variant="ghost" size="xxs" leadingIcon={Calendar03Icon}>

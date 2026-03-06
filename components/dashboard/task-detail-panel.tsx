@@ -13,6 +13,8 @@ import { Switch } from "@/components/ui/switch"
 import { Calendar, RangeCalendar } from "@/components/ui/calendar"
 import { Avatar, AvatarAvvvatars, AvatarGroup, AvatarImage } from "@/components/ui/avatar"
 import { AssigneePicker } from "@/components/dashboard/assignee-popover"
+import { PriorityPopover, PriorityButton } from "@/components/dashboard/priority-picker"
+import type { Priority } from "@/components/dashboard/priority-picker"
 import { updateTaskTitle, updateTaskDates, toggleTaskCompleted } from "@/app/actions"
 import { markMutation, hasRecentLocalMutation } from "@/hooks/mutation-tracker"
 import type { ProjectMember, TaskWithProject } from "@/lib/data"
@@ -31,9 +33,12 @@ type TaskDetailPanelProps = {
   onClose: () => void
   onTaskToggle?: (taskId: string, completed: boolean) => Promise<void>
   onTitleChange?: (taskId: string, title: string) => void
+  onDateChange?: (taskId: string, dueDate: string | null, dueDateEnd: string | null) => void
+  onPriorityChange?: (taskId: string, priority: Priority) => void
+  onAssigneeChange?: (taskId: string, assignedIds: string[]) => void
 }
 
-export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleChange }: TaskDetailPanelProps) {
+export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleChange, onDateChange, onPriorityChange, onAssigneeChange }: TaskDetailPanelProps) {
   const [, startTransition] = useTransition()
 
   // ── Title ──────────────────────────────────────────────────────────────────
@@ -179,7 +184,7 @@ export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleC
       animate={{ x: 0 }}
       exit={{ x: "100%" }}
       transition={{ type: "spring", damping: 30, stiffness: 300 }}
-      className="absolute inset-y-2.5 right-2.5 z-10 flex w-[40%] flex-col rounded-[26px] border border-gray-cool-100 bg-bg-primary shadow-[-8px_0_32px_-4px_rgba(93,107,152,0.10)] overflow-y-auto scrollbar-hidden"
+      className="absolute inset-y-2.5 right-2.5 z-10 flex w-[60%] min-[1400px]:w-[40%] flex-col rounded-[26px] border border-gray-cool-100 bg-bg-primary shadow-[-8px_0_32px_-4px_rgba(93,107,152,0.10)] overflow-y-auto scrollbar-hidden"
     >
       {/* Header */}
       <div className="flex items-center gap-3 border-b border-gray-cool-100 px-6 py-4">
@@ -245,6 +250,7 @@ export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleC
                       if (range?.from) {
                         const from = fmtDb(range.from)
                         const to = range.to ? fmtDb(range.to) : null
+                        onDateChange?.(task.id, from, to)
                         markMutation("tasks")
                         startTransition(async () => {
                           try { await updateTaskDates(task.id, from, to) }
@@ -262,6 +268,7 @@ export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleC
                       setDueDate(date)
                       setCalendarOpen(false)
                       const val = date ? fmtDb(date) : null
+                      onDateChange?.(task.id, val, null)
                       markMutation("tasks")
                       startTransition(async () => {
                         try { await updateTaskDates(task.id, val, null) }
@@ -278,6 +285,7 @@ export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleC
                       if (rangeMode) {
                         const prevRange = dateRange
                         setDateRange(undefined)
+                        onDateChange?.(task.id, dueDate ? fmtDb(dueDate) : null, null)
                         markMutation("tasks")
                         startTransition(async () => {
                           try { await updateTaskDates(task.id, dueDate ? fmtDb(dueDate) : null, null) }
@@ -294,6 +302,20 @@ export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleC
               </PopoverPrimitive.Content>
             </PopoverPrimitive.Portal>
           </PopoverPrimitive.Root>
+        </div>
+
+        {/* Priority */}
+        <div className="flex items-center gap-3">
+          <span className="w-24 shrink-0 text-text-sm font-medium text-gray-cool-400">Priority</span>
+          <PriorityPopover
+            taskId={task.id}
+            priority={(task.priority ?? "none") as Priority}
+            onPriorityChange={(p) => onPriorityChange?.(task.id, p)}
+          >
+            <span>
+              <PriorityButton priority={(task.priority ?? "none") as Priority} />
+            </span>
+          </PriorityPopover>
         </div>
 
         {/* Assignees */}
@@ -322,7 +344,10 @@ export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleC
               taskId={task.id}
               members={members}
               assignedIds={localAssignedIds}
-              onAssignedIdsChange={setLocalAssignedIds}
+              onAssignedIdsChange={(ids) => {
+                setLocalAssignedIds(ids)
+                onAssigneeChange?.(task.id, ids)
+              }}
             />
           </div>
         </div>

@@ -86,7 +86,7 @@ export async function toggleTaskCompleted(taskId: string, completed: boolean) {
 export async function createTask(
   projectId: string,
   title: string,
-  options?: { dueDate?: string | null; dueDateEnd?: string | null; assigneeIds?: string[] },
+  options?: { dueDate?: string | null; dueDateEnd?: string | null; assigneeIds?: string[]; priority?: string },
 ) {
   const { supabase, user } = await requireUser()
   await requireProjectAccess(supabase, user.id, projectId)
@@ -100,6 +100,7 @@ export async function createTask(
       user_id: user.id,
       due_date: options?.dueDate ?? null,
       due_date_end: options?.dueDateEnd ?? null,
+      priority: options?.priority ?? "none",
     })
     .select("id, created_at")
     .single()
@@ -160,6 +161,21 @@ export async function updateTaskDates(
   const { error } = await supabase
     .from("tasks")
     .update({ due_date: dueDate, due_date_end: dueDateEnd })
+    .eq("id", taskId)
+
+  if (error) throw error
+
+  revalidatePath(`/projects/${task.project_id}`)
+  revalidatePath("/")
+}
+
+export async function updateTaskPriority(taskId: string, priority: string) {
+  const { supabase, user } = await requireUser()
+  const task = await requireTaskAccess(supabase, user.id, taskId)
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({ priority })
     .eq("id", taskId)
 
   if (error) throw error

@@ -17,6 +17,7 @@ import { useRealtimeRefresh } from "@/hooks/use-realtime-refresh"
 import { useProjectPresence } from "@/hooks/use-project-presence"
 import { useUser } from "@/components/dashboard/user-provider"
 import type { ProjectMember, ProjectWithMembers, TaskWithProject } from "@/lib/data"
+import type { Priority } from "@/components/dashboard/priority-picker"
 
 function getInitials(name: string | null | undefined): string {
   if (!name) return "?"
@@ -37,9 +38,13 @@ type ProjectDetailProps = {
   enableRealtimeRefresh?: boolean
   /** Called when a task row is clicked to open the detail panel. */
   onTaskSelect?: (taskId: string) => void
+  /** ID of the currently selected task (shown in the detail panel). */
+  selectedTaskId?: string | null
+  /** Called when a task's priority changes (for optimistic sync in the drawer). */
+  onTaskPriorityChange?: (taskId: string, priority: Priority) => void
 }
 
-export function ProjectDetail({ project, tasks, onDeleteTask, onTaskToggle, onTaskCreated, enableRealtimeRefresh = true, onTaskSelect }: ProjectDetailProps) {
+export function ProjectDetail({ project, tasks, onDeleteTask, onTaskToggle, onTaskCreated, enableRealtimeRefresh = true, onTaskSelect, selectedTaskId, onTaskPriorityChange }: ProjectDetailProps) {
   const [activeView, setActiveView] = React.useState("overview")
   const [optimisticTasks, removeOptimisticTask] = React.useOptimistic(
     tasks,
@@ -168,8 +173,11 @@ export function ProjectDetail({ project, tasks, onDeleteTask, onTaskToggle, onTa
               }))}
               members={project.members}
               assignedIds={task.task_assignees.map((a) => a.profiles?.id).filter(Boolean) as string[]}
+              selected={selectedTaskId === task.id}
               initialDueDate={task.due_date}
               initialDueDateEnd={task.due_date_end}
+              priority={(task.priority ?? "none") as Priority}
+              onPriorityChange={onTaskPriorityChange ? (p) => onTaskPriorityChange(task.id, p) : undefined}
               onSelect={onTaskSelect ? () => onTaskSelect(task.id) : undefined}
             />
           </TaskContextMenu>

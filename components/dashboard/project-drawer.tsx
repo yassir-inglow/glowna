@@ -264,6 +264,38 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
     setTasks((prev) => prev?.map((t) => (t.id === taskId ? { ...t, title } : t)) ?? null)
   }, [])
 
+  const handleTaskDateChange = React.useCallback((taskId: string, dueDate: string | null, dueDateEnd: string | null) => {
+    setTasks((prev) =>
+      prev?.map((t) =>
+        t.id === taskId ? { ...t, due_date: dueDate, due_date_end: dueDateEnd } : t,
+      ) ?? null,
+    )
+  }, [])
+
+  const handleTaskPriorityChange = React.useCallback((taskId: string, priority: string) => {
+    setTasks((prev) =>
+      prev?.map((t) =>
+        t.id === taskId ? { ...t, priority } : t,
+      ) ?? null,
+    )
+  }, [])
+
+  const handleTaskAssigneeChange = React.useCallback((taskId: string, assignedIds: string[]) => {
+    setTasks((prev) =>
+      prev?.map((t) => {
+        if (t.id !== taskId) return t
+        const projectMembers = projectRef.current?.members ?? []
+        const newAssignees = assignedIds
+          .map((pid) => projectMembers.find((m) => m.id === pid))
+          .filter(Boolean)
+          .map((m) => ({
+            profiles: { id: m!.id, full_name: m!.full_name, email: m!.email, avatar_url: m!.avatar_url },
+          }))
+        return { ...t, task_assignees: newAssignees }
+      }) ?? null,
+    )
+  }, [])
+
   const handleTaskCreated = React.useCallback(async () => {
     if (!projectId) return
     const result = await fetchProjectTasks(projectId)
@@ -286,14 +318,31 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
 
   const selectedTask = selectedTaskId && tasks ? tasks.find((t) => t.id === selectedTaskId) ?? null : null
 
+  const observerRef = React.useRef<ResizeObserver | null>(null)
+  const [hasRoom, setHasRoom] = React.useState(false)
+
+  const containerRef = React.useCallback((el: HTMLDivElement | null) => {
+    if (observerRef.current) {
+      observerRef.current.disconnect()
+      observerRef.current = null
+    }
+    if (!el) return
+    const observer = new ResizeObserver(([entry]) => {
+      setHasRoom(entry.contentRect.width >= 1400)
+    })
+    observer.observe(el)
+    observerRef.current = observer
+  }, [])
+
   return (
     <Drawer open={isOpen} onOpenChange={handleOpenChange}>
       <DrawerContent open={isOpen}>
-        <div className="relative flex-1 overflow-hidden">
+        <div ref={containerRef} className="relative flex-1 overflow-hidden">
           <motion.div
             className="h-full w-full overflow-y-auto scrollbar-hidden"
-            animate={{ x: selectedTaskId ? -100 : 0 }}
+            animate={{ x: selectedTaskId && hasRoom ? -100 : 0 }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
+            onClick={() => { if (selectedTaskId) setSelectedTaskId(null) }}
           >
             <div className="mx-auto w-full max-w-[1100px] p-6">
               {project && tasks !== null && !loading ? (
@@ -305,6 +354,8 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
                   onTaskCreated={handleTaskCreated}
                   enableRealtimeRefresh={false}
                   onTaskSelect={setSelectedTaskId}
+                  selectedTaskId={selectedTaskId}
+                  onTaskPriorityChange={handleTaskPriorityChange}
                 />
               ) : project ? (
                 <DrawerSkeleton project={project} />
@@ -321,6 +372,9 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
                 onClose={() => setSelectedTaskId(null)}
                 onTaskToggle={handleTaskToggle}
                 onTitleChange={handleTaskTitleChange}
+                onDateChange={handleTaskDateChange}
+                onPriorityChange={handleTaskPriorityChange}
+                onAssigneeChange={handleTaskAssigneeChange}
               />
             )}
           </AnimatePresence>

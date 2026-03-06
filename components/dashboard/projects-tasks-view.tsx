@@ -103,16 +103,16 @@ export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
             onValueChange={setSearch}
             placeholder={activeTab === "project" ? "Search projects…" : "Search tasks…"}
           />
-          <Button
-            type="button"
-            variant="primary"
-            size="sm"
-            className="text-text-sm"
-            leadingIcon={Add01Icon}
-            onClick={() => setIsCreating(true)}
-          >
-            {activeTab === "project" ? "New Project" : "New Task"}
-          </Button>
+          {activeTab === "project" && (
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              iconOnly={Add01Icon}
+              onClick={() => setIsCreating(true)}
+              aria-label="New Project"
+            />
+          )}
         </div>
       </div>
 
@@ -170,12 +170,10 @@ export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
             transition={{ duration: 0.15 }}
             className="flex-1 min-h-0 overflow-y-auto scrollbar-hidden rounded-xl"
           >
-            {isCreating && (
-              <NewTaskRow
-                projects={projects.map((p) => ({ id: p.id, title: p.title }))}
-                onDone={() => setIsCreating(false)}
-              />
-            )}
+            <NewTaskRow
+              projects={projects.map((p) => ({ id: p.id, title: p.title }))}
+              onCreated={() => router.refresh()}
+            />
             <AnimatePresence initial={false}>
               {filteredTasks.map((task) => (
                 <motion.div
@@ -207,6 +205,7 @@ export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
                       assignedIds={task.task_assignees.map((a) => a.profiles?.id).filter(Boolean) as string[]}
                       initialDueDate={task.due_date}
                       initialDueDateEnd={task.due_date_end}
+                      priority={(task.priority ?? "none") as "none" | "low" | "medium" | "high" | "urgent"}
                     />
                   </TaskContextMenu>
                 </motion.div>

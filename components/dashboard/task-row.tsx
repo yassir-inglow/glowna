@@ -24,6 +24,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { AssigneePopover } from "@/components/dashboard/assignee-popover"
+import { PriorityPopover, PriorityButton } from "@/components/dashboard/priority-picker"
+import type { Priority } from "@/components/dashboard/priority-picker"
 import { toggleTaskCompleted, updateTaskDates } from "@/app/actions"
 import { markMutation, hasRecentLocalMutation } from "@/hooks/mutation-tracker"
 import type { ProjectMember } from "@/lib/data"
@@ -92,6 +94,10 @@ export type TaskRowProps = {
   initialDueDate?: string | null
   /** End of date range stored in the DB (ISO date string). */
   initialDueDateEnd?: string | null
+  /** Task priority level. */
+  priority?: Priority
+  /** Callback when priority is changed. */
+  onPriorityChange?: (priority: Priority) => void
   /** Called when the row itself is clicked (not interactive children). */
   onSelect?: () => void
 }
@@ -115,6 +121,8 @@ export function TaskRow({
   onAssigneeChange,
   initialDueDate,
   initialDueDateEnd,
+  priority = "none",
+  onPriorityChange,
   onSelect,
 }: TaskRowProps) {
   const [, startTransition] = useTransition()
@@ -165,6 +173,7 @@ export function TaskRow({
   // ── Local assignee state (optimistic + synced from parent for realtime) ─────
   const [localAssignedIds, setLocalAssignedIds] = useState<string[]>(assignedIds ?? [])
   const prevAssignedRef = useRef(assignedIds)
+  const selfMutatedRef = useRef(false)
 
   useEffect(() => {
     const prev = prevAssignedRef.current ?? []
@@ -172,7 +181,8 @@ export function TaskRow({
     prevAssignedRef.current = assignedIds
 
     if (prev.length === next.length && prev.every((id, i) => id === next[i])) return
-    if (hasRecentLocalMutation("task_assignees")) return
+    if (selfMutatedRef.current && hasRecentLocalMutation("task_assignees")) return
+    selfMutatedRef.current = false
     setLocalAssignedIds(next)
   }, [assignedIds])
 
@@ -244,6 +254,7 @@ export function TaskRow({
     if (!onSelect) return
     const target = e.target as HTMLElement
     if (target.closest("button, input, label, [role=checkbox], [data-slot=popover-trigger], [data-radix-popper-content-wrapper]")) return
+    e.stopPropagation()
     onSelect()
   }
 
@@ -253,11 +264,14 @@ export function TaskRow({
       onContextMenu={() => setContextOpen(true)}
       onClick={handleRowClick}
       className={cn(
-        "flex w-full items-center justify-between border-b border-gray-cool-100 px-4 py-4 transition-colors hover:bg-alpha-900",
+        "relative flex w-full items-center justify-between border-b border-gray-cool-100 px-4 py-4 transition-colors hover:bg-alpha-900",
         onSelect && "cursor-pointer",
-        (selected || contextOpen) && "bg-alpha-900",
+        selected ? "bg-alpha-900/50" : contextOpen && "bg-alpha-900",
       )}
     >
+      {selected && (
+        <span className="absolute inset-y-0 left-0 w-0.5 bg-brand-500" />
+      )}
       {/* Left: task info */}
       <div className="flex flex-1 min-w-0 flex-col gap-0.5">
         <div className="flex items-center gap-2">
@@ -272,7 +286,7 @@ export function TaskRow({
           </span>
         </div>
 
-        {(showAddons || dueDate || dateRange?.from) && (
+        {(showAddons || dueDate || dateRange?.from || priority !== "none") && (
         <div className="flex items-center pl-[22px]">
           {showAddons && (
             <>
@@ -289,6 +303,18 @@ export function TaskRow({
                 {String(commentCount)}
               </Button>
             </>
+          )}
+
+          {id && (
+            <PriorityPopover
+              taskId={id}
+              priority={priority}
+              onPriorityChange={onPriorityChange}
+            >
+              <span data-slot="popover-trigger">
+                <PriorityButton priority={priority} />
+              </span>
+            </PriorityPopover>
           )}
 
           <PopoverPrimitive.Root open={calendarOpen} onOpenChange={setCalendarOpen}>
@@ -435,7 +461,10 @@ export function TaskRow({
             members={members}
             assignedIds={localAssignedIds}
             onChanged={onAssigneeChange}
-            onAssignedIdsChange={setLocalAssignedIds}
+            onAssignedIdsChange={(ids) => {
+              selfMutatedRef.current = true
+              setLocalAssignedIds(ids)
+            }}
           >
             <button type="button" className="flex items-center gap-0 cursor-pointer">
               {displayAvatars.length > 0 ? (
