@@ -163,16 +163,16 @@ export const Group: Story = {
 export const GroupWithStatus: Story = {
   render: () => (
     <AvatarGroup>
-      <Avatar className="size-8 ring-2 ring-white" status="online">
+      <Avatar className="size-8 ring-2 ring-white" data-status="online">
         <AvatarFallback>A</AvatarFallback>
       </Avatar>
-      <Avatar className="size-8 ring-2 ring-white" status="busy">
+      <Avatar className="size-8 ring-2 ring-white" data-status="busy">
         <AvatarFallback>B</AvatarFallback>
       </Avatar>
-      <Avatar className="size-8 ring-2 ring-white" status="away">
+      <Avatar className="size-8 ring-2 ring-white" data-status="away">
         <AvatarFallback>C</AvatarFallback>
       </Avatar>
-      <Avatar className="size-8 ring-2 ring-white" status="offline">
+      <Avatar className="size-8 ring-2 ring-white" data-status="offline">
         <AvatarFallback>D</AvatarFallback>
       </Avatar>
     </AvatarGroup>
@@ -194,7 +194,7 @@ export const GroupSmall: Story = {
 export const GroupCompact: Story = {
   render: () => (
     <AvatarGroup>
-      <Avatar className="size-8 ring-2 ring-white" status="online">
+      <Avatar className="size-8 ring-2 ring-white" data-status="online">
         <AvatarFallback>A</AvatarFallback>
       </Avatar>
     </AvatarGroup>
@@ -205,7 +205,7 @@ export const GroupCompact: Story = {
 
 export const Online: Story = {
   render: () => (
-    <Avatar className="size-10" status="online">
+    <Avatar className="size-10" data-status="online">
       <AvatarFallback>JD</AvatarFallback>
     </Avatar>
   ),
@@ -213,7 +213,7 @@ export const Online: Story = {
 
 export const Offline: Story = {
   render: () => (
-    <Avatar className="size-10" status="offline">
+    <Avatar className="size-10" data-status="offline">
       <AvatarFallback>JD</AvatarFallback>
     </Avatar>
   ),
@@ -221,7 +221,7 @@ export const Offline: Story = {
 
 export const Busy: Story = {
   render: () => (
-    <Avatar className="size-10" status="busy">
+    <Avatar className="size-10" data-status="busy">
       <AvatarFallback>JD</AvatarFallback>
     </Avatar>
   ),
@@ -229,7 +229,7 @@ export const Busy: Story = {
 
 export const Away: Story = {
   render: () => (
-    <Avatar className="size-10" status="away">
+    <Avatar className="size-10" data-status="away">
       <AvatarFallback>JD</AvatarFallback>
     </Avatar>
   ),
@@ -243,7 +243,7 @@ export const AllStatuses: Story = {
         <div className="flex items-center gap-6">
           {(["online", "offline", "busy", "away"] as const).map((status) => (
             <div key={status} className="flex flex-col items-center gap-2">
-              <Avatar className="size-10" status={status}>
+              <Avatar className="size-10" data-status={status}>
                 <AvatarFallback>JD</AvatarFallback>
               </Avatar>
               <span className="capitalize text-text-xs text-gray-cool-400">{status}</span>
@@ -255,7 +255,7 @@ export const AllStatuses: Story = {
         <p className="mb-3 text-text-sm font-medium text-gray-cool-500">All sizes — online</p>
         <div className="flex items-end gap-4">
           {(["xs", "sm", "md", "lg", "xl"] as AvatarSize[]).map((size) => (
-            <Avatar key={size} size={size} status="online">
+            <Avatar key={size} size={size} data-status="online">
               <AvatarFallback>U</AvatarFallback>
             </Avatar>
           ))}
