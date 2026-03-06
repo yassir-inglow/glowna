@@ -71,7 +71,7 @@ function DrawerContent({
             <DialogPrimitive.Content
               data-slot="drawer-content"
               className={cn(
-                "fixed inset-x-0 bottom-0 top-[78px] z-50 flex flex-col overflow-visible rounded-t-[32px] bg-bg-primary shadow-[0px_-8px_32px_-4px_rgba(93,107,152,0.12)] outline-none",
+                "fixed inset-x-0 bottom-0 top-[78px] z-50 flex flex-col overflow-visible rounded-t-[26px] bg-bg-primary shadow-[0px_-8px_32px_-4px_rgba(93,107,152,0.12)] outline-none",
                 className,
               )}
               asChild

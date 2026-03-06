@@ -4,8 +4,10 @@ import * as React from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowDown01Icon } from "@hugeicons/core-free-icons"
 
+import { AnimatePresence, motion } from "motion/react"
 import { Drawer, DrawerContent } from "@/components/ui/drawer"
 import { ProjectDetail } from "@/components/dashboard/project-detail"
+import { TaskDetailPanel } from "@/components/dashboard/task-detail-panel"
 import { TaskRowSkeleton } from "@/components/dashboard/task-row"
 import { Button } from "@/components/ui/button"
 import { ButtonSkeleton } from "@/components/ui/button"
@@ -29,6 +31,7 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
 
   const [tasks, setTasks] = React.useState<TaskWithProject[] | null>(null)
   const [loading, setLoading] = React.useState(false)
+  const [selectedTaskId, setSelectedTaskId] = React.useState<string | null>(null)
 
   // Find the project from already-loaded data (instant)
   const project = React.useMemo(
@@ -68,9 +71,11 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
   React.useEffect(() => {
     if (!projectId) {
       setTasks(null)
+      setSelectedTaskId(null)
       return
     }
 
+    setSelectedTaskId(null)
     let cancelled = false
     setLoading(true)
 
@@ -275,22 +280,45 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
     if (!open) handleClose()
   }
 
+  const selectedTask = selectedTaskId && tasks ? tasks.find((t) => t.id === selectedTaskId) ?? null : null
+
   return (
     <Drawer open={isOpen} onOpenChange={handleOpenChange}>
       <DrawerContent open={isOpen}>
-        <div className="mx-auto w-full max-w-[1100px] flex-1 overflow-y-auto p-6 scrollbar-hidden">
-          {project && tasks !== null && !loading ? (
-            <ProjectDetail
-              project={project}
-              tasks={tasks}
-              onDeleteTask={(taskId) => setTasks((prev) => prev?.filter((t) => t.id !== taskId) ?? null)}
-              onTaskToggle={handleTaskToggle}
-              onTaskCreated={handleTaskCreated}
-              enableRealtimeRefresh={false}
-            />
-          ) : project ? (
-            <DrawerSkeleton project={project} />
-          ) : null}
+        <div className="relative flex-1 overflow-hidden">
+          <motion.div
+            className="h-full w-full overflow-y-auto scrollbar-hidden"
+            animate={{ x: selectedTask ? -100 : 0 }}
+            transition={{ type: "spring", damping: 30, stiffness: 300 }}
+          >
+            <div className="mx-auto w-full max-w-[1100px] p-6">
+              {project && tasks !== null && !loading ? (
+                <ProjectDetail
+                  project={project}
+                  tasks={tasks}
+                  onDeleteTask={(taskId) => { setSelectedTaskId(null); setTasks((prev) => prev?.filter((t) => t.id !== taskId) ?? null) }}
+                  onTaskToggle={handleTaskToggle}
+                  onTaskCreated={handleTaskCreated}
+                  enableRealtimeRefresh={false}
+                  onTaskSelect={setSelectedTaskId}
+                />
+              ) : project ? (
+                <DrawerSkeleton project={project} />
+              ) : null}
+            </div>
+          </motion.div>
+
+          <AnimatePresence>
+            {selectedTask && project && (
+              <TaskDetailPanel
+                key={selectedTask.id}
+                task={selectedTask}
+                members={project.members}
+                onClose={() => setSelectedTaskId(null)}
+                onTaskToggle={handleTaskToggle}
+              />
+            )}
+          </AnimatePresence>
         </div>
       </DrawerContent>
     </Drawer>

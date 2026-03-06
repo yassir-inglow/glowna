@@ -126,6 +126,21 @@ export async function createTask(
   }
 }
 
+export async function updateTaskTitle(taskId: string, title: string) {
+  const { supabase, user } = await requireUser()
+  const task = await requireTaskAccess(supabase, user.id, taskId)
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({ title })
+    .eq("id", taskId)
+
+  if (error) throw error
+
+  revalidatePath(`/projects/${task.project_id}`)
+  revalidatePath("/")
+}
+
 export async function updateTaskDates(
   taskId: string,
   dueDate: string | null,

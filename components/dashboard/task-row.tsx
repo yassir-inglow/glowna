@@ -91,6 +91,8 @@ export type TaskRowProps = {
   initialDueDate?: string | null
   /** End of date range stored in the DB (ISO date string). */
   initialDueDateEnd?: string | null
+  /** Called when the row itself is clicked (not interactive children). */
+  onSelect?: () => void
 }
 
 export function TaskRow({
@@ -112,6 +114,7 @@ export function TaskRow({
   onAssigneeChange,
   initialDueDate,
   initialDueDateEnd,
+  onSelect,
 }: TaskRowProps) {
   const [, startTransition] = useTransition()
   const [optimisticCompleted, setOptimisticCompleted] = useOptimistic(completed)
@@ -236,12 +239,21 @@ export function TaskRow({
     })
   }
 
+  function handleRowClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (!onSelect) return
+    const target = e.target as HTMLElement
+    if (target.closest("button, input, label, [role=checkbox], [data-slot=popover-trigger], [data-radix-popper-content-wrapper]")) return
+    onSelect()
+  }
+
   return (
     <div
       ref={rowRef}
       onContextMenu={() => setContextOpen(true)}
+      onClick={handleRowClick}
       className={cn(
         "flex w-full items-center justify-between border-b border-gray-cool-100 px-4 py-4 transition-colors hover:bg-alpha-900",
+        onSelect && "cursor-pointer",
         (selected || contextOpen) && "bg-alpha-900",
       )}
     >

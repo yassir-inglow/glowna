@@ -35,9 +35,11 @@ type ProjectDetailProps = {
   onTaskCreated?: () => void
   /** Disable the built-in Realtime refresh (e.g. when a parent already subscribes). */
   enableRealtimeRefresh?: boolean
+  /** Called when a task row is clicked to open the detail panel. */
+  onTaskSelect?: (taskId: string) => void
 }
 
-export function ProjectDetail({ project, tasks, onDeleteTask, onTaskToggle, onTaskCreated, enableRealtimeRefresh = true }: ProjectDetailProps) {
+export function ProjectDetail({ project, tasks, onDeleteTask, onTaskToggle, onTaskCreated, enableRealtimeRefresh = true, onTaskSelect }: ProjectDetailProps) {
   const [activeView, setActiveView] = React.useState("overview")
   const [optimisticTasks, removeOptimisticTask] = React.useOptimistic(
     tasks,
@@ -168,6 +170,7 @@ export function ProjectDetail({ project, tasks, onDeleteTask, onTaskToggle, onTa
               assignedIds={task.task_assignees.map((a) => a.profiles?.id).filter(Boolean) as string[]}
               initialDueDate={task.due_date}
               initialDueDateEnd={task.due_date_end}
+              onSelect={onTaskSelect ? () => onTaskSelect(task.id) : undefined}
             />
           </TaskContextMenu>
         ))}
