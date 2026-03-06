@@ -95,7 +95,7 @@ export const AvvvatarsWithStatus: Story = {
     <div className="flex items-center gap-4">
       {(["online", "offline", "busy", "away"] as const).map((status) => (
         <div key={status} className="flex flex-col items-center gap-2">
-          <Avatar size="lg" status={status}>
+          <Avatar size="lg">
             <AvatarAvvvatars value="Alice Brown" />
           </Avatar>
           <span className="capitalize text-text-xs text-gray-cool-400">{status}</span>
