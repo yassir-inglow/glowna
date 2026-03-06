@@ -95,6 +95,21 @@ export async function getTasksByProjectId(projectId: string) {
 
 export async function getAllTasks() {
   const supabase = await createClient()
+
+  // Only fetch tasks assigned to the current user
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data: assigned } = await supabase
+    .from("task_assignees")
+    .select("task_id")
+    .eq("profile_id", user.id)
+
+  const taskIds = assigned?.map((a) => a.task_id) ?? []
+  if (taskIds.length === 0) return []
+
   const { data, error } = await supabase
     .from("tasks")
     .select(`
@@ -102,6 +117,7 @@ export async function getAllTasks() {
       projects!inner(title),
       task_assignees(profiles(id, full_name, email, avatar_url))
     `)
+    .in("id", taskIds)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
 
