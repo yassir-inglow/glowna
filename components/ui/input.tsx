@@ -5,7 +5,7 @@ import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import { cn } from "@/lib/utils"
 
 const inputVariants = cva(
-  "inline-flex w-full items-center gap-[4px] rounded-full border border-gray-cool-100 bg-alpha-900 font-medium text-gray-cool-300 overflow-hidden transition-all focus-within:border-brand-500",
+  "inline-flex w-full items-center gap-[4px] rounded-full border border-gray-cool-200 bg-alpha-900 font-medium text-gray-cool-300 overflow-hidden transition-all",
   {
     variants: {
       size: {

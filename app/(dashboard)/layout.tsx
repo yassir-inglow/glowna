@@ -30,12 +30,7 @@ export default async function DashboardLayout({
       fullName={profile?.full_name ?? undefined}
       avatarUrl={profile?.avatar_url ?? undefined}
     >
-      <div className="relative h-screen overflow-hidden bg-bg-primary">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none fixed left-1/2 top-[-1000px] z-0 h-[1500px] w-full -translate-x-1/2 rounded-full bg-gray-cool-200 blur-[900px]"
-        />
-
+      <div className="relative h-screen overflow-hidden bg-gray-cool-50">
         <div className="relative mx-auto flex h-full max-w-[1100px] flex-col">
           <div className="relative z-50">
             <AppHeader />

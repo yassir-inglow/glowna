@@ -128,7 +128,7 @@ function Checkbox({
       data-slot="checkbox"
       className={cn(
         // Base
-        "peer relative size-5 shrink-0 cursor-pointer rounded-[8px] outline-none",
+        "peer relative size-5 shrink-0 cursor-pointer rounded-full outline-none",
         "transition-[background-color,border-color,transform,box-shadow] duration-200 ease-out",
         "active:scale-95 motion-reduce:transition-none",
         // Focus ring
@@ -136,7 +136,7 @@ function Checkbox({
         // Disabled
         "disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50",
         // Unchecked base
-        "border border-gray-cool-200 bg-gray-cool-100",
+        "border border-gray-cool-200 bg-gray-cool-50",
         // Checked
         "data-[state=checked]:border-transparent data-[state=checked]:bg-brand-500",
         // Indeterminate

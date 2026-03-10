@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Popover as PopoverPrimitive } from "radix-ui"
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 
 import { Button } from "@/components/ui/button"
 import { useUser } from "@/components/dashboard/user-provider"
@@ -270,22 +270,16 @@ export function NotificationPopover({
   const count = entries.length
 
   return (
-    <PopoverPrimitive.Root open={open} onOpenChange={handleOpenChange}>
-      <PopoverPrimitive.Trigger asChild>
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>
         <div className="relative" suppressHydrationWarning>
           {children}
           {!open && count > 0 && (
             <span className="absolute -right-0.5 -top-0.5 flex size-[10px] items-center justify-center rounded-full bg-brand-500 ring-2 ring-white" />
           )}
         </div>
-      </PopoverPrimitive.Trigger>
-      <PopoverPrimitive.Portal>
-        <PopoverPrimitive.Content
-          side="bottom"
-          align="end"
-          sideOffset={8}
-          className="z-50 w-[360px] rounded-2xl border border-gray-cool-100 bg-white p-4 shadow-[0px_8px_24px_-4px_rgba(93,107,152,0.16)] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
-        >
+      </PopoverTrigger>
+      <PopoverContent side="bottom" align="end" className="w-[360px] p-4">
           <p className="mb-3 text-text-sm font-semibold text-gray-cool-900">
             Notifications
           </p>
@@ -324,8 +318,7 @@ export function NotificationPopover({
               )}
             </div>
           )}
-        </PopoverPrimitive.Content>
-      </PopoverPrimitive.Portal>
-    </PopoverPrimitive.Root>
+      </PopoverContent>
+    </Popover>
   )
 }

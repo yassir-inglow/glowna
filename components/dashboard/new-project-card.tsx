@@ -102,7 +102,7 @@ export function NewProjectCard({ onDone }: NewProjectCardProps) {
 
   return (
     <div ref={cardRef}>
-      <article className="relative flex h-[200px] flex-col justify-between rounded-[24px] border border-brand-200 bg-gradient-to-b from-gray-cool-25 to-gray-cool-50 p-4 shadow-[0px_0px_0px_3px_rgba(99,102,241,0.08)]">
+      <article className="relative flex h-[200px] flex-col justify-between rounded-[24px] bg-alpha-900 p-4">
         <div className="flex items-center justify-between">
           <button
             type="button"
@@ -132,7 +132,7 @@ export function NewProjectCard({ onDone }: NewProjectCardProps) {
             onKeyDown={handleTitleKeyDown}
             placeholder="Project name"
             disabled={isPending}
-            className="w-full bg-transparent text-[22px]/none italic text-gray-cool-700 placeholder:text-gray-cool-300 outline-none [font-family:'PT_Serif',serif]"
+            className="w-full bg-transparent text-text-xl font-medium text-gray-cool-700 placeholder:text-gray-cool-300 outline-none"
           />
           <input
             type="text"

@@ -102,7 +102,7 @@ function ContextMenuContent({
       <ContextMenuPrimitive.Content
         data-slot="context-menu-content"
         className={cn(
-          "z-50 max-h-(--radix-context-menu-content-available-height) min-w-[8rem] origin-(--radix-context-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-xl border border-alpha-500 bg-alpha-200 py-1 px-0 text-gray-cool-50 shadow-[0px_0px_4px_0px_rgba(93,107,152,0.08),0px_8px_16px_0px_rgba(93,107,152,0.08)] backdrop-blur-[5px] data-[state=open]:animate-[ctx-menu-in_150ms_ease-out]",
+          "z-50 max-h-(--radix-context-menu-content-available-height) min-w-[8rem] origin-(--radix-context-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-4xl border border-alpha-500 bg-alpha-200 py-1 px-0 text-gray-cool-50 shadow-[0px_0px_4px_0px_rgba(93,107,152,0.08),0px_8px_16px_0px_rgba(93,107,152,0.08)] backdrop-blur-[5px] data-[state=open]:animate-[ctx-menu-in_150ms_ease-out]",
           className
         )}
         {...props}

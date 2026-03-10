@@ -33,18 +33,18 @@
   --color-gray-cool-950: #0E101B;
 
   /* Brand */
-  --color-brand-25: #FFECE8;
-  --color-brand-50: #FFDAD2;
-  --color-brand-100: #FFC7BB;
-  --color-brand-200: #FFB5A5;
-  --color-brand-300: #FF8F78;
-  --color-brand-400: #FF6A4B;
-  --color-brand-500: #FF451E;
-  --color-brand-600: #CC3718;
-  --color-brand-700: #992912;
-  --color-brand-800: #661C0C;
-  --color-brand-900: #330E06;
-  --color-brand-950: #1A0703;
+  --color-brand-25: #F7F7F9;
+  --color-brand-50: #EEEEF3;
+  --color-brand-100: #D5D6E0;
+  --color-brand-200: #BCBDCD;
+  --color-brand-300: #8A8CA8;
+  --color-brand-400: #4D5073;
+  --color-brand-500: #111322;
+  --color-brand-600: #1E2038;
+  --color-brand-700: #0E101B;
+  --color-brand-800: #0A0C14;
+  --color-brand-900: #07080E;
+  --color-brand-950: #040507;
 
   /* Alpha (Gray Cool 600 base at varying opacities) */
   --color-alpha-25: rgba(74, 85, 120, 0.98);
@@ -193,7 +193,7 @@
   /* Interactive / Brand */
   --bg-brand: var(--color-brand-500);
   --bg-brand-hover: var(--color-brand-600);
-  --bg-brand-subtle: var(--color-brand-25);
+  --bg-brand-subtle: var(--color-brand-50);
 
   /* Error */
   --text-error: var(--color-error-600);

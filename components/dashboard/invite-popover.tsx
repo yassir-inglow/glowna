@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { Popover as PopoverPrimitive } from "radix-ui"
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { Delete02Icon, SentIcon, UserGroupIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
@@ -70,8 +70,8 @@ export function SharePopover({ projectId, members, ownerId, className }: SharePo
   }
 
   return (
-    <PopoverPrimitive.Root open={open} onOpenChange={handleOpenChange}>
-      <PopoverPrimitive.Trigger asChild>
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>
         <Button
           type="button"
           variant="secondary"
@@ -81,14 +81,8 @@ export function SharePopover({ projectId, members, ownerId, className }: SharePo
         >
           Share
         </Button>
-      </PopoverPrimitive.Trigger>
-      <PopoverPrimitive.Portal>
-        <PopoverPrimitive.Content
-          side="bottom"
-          align="end"
-          sideOffset={8}
-          className="z-50 w-[340px] rounded-2xl border border-gray-cool-100 bg-white shadow-[0px_8px_24px_-4px_rgba(93,107,152,0.16)] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
-        >
+      </PopoverTrigger>
+      <PopoverContent side="bottom" align="end" className="w-[340px]">
           <div className="p-4 pb-3">
             <p className="text-text-sm font-semibold text-gray-cool-800 mb-3">
               Share project
@@ -207,9 +201,8 @@ export function SharePopover({ projectId, members, ownerId, className }: SharePo
               </div>
             </div>
           )}
-        </PopoverPrimitive.Content>
-      </PopoverPrimitive.Portal>
-    </PopoverPrimitive.Root>
+      </PopoverContent>
+    </Popover>
   )
 }
 

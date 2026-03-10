@@ -1,13 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { Folder01Icon, Calendar03Icon, PlusSignIcon, Search01Icon, Tick01Icon } from "@hugeicons/core-free-icons"
+import { Calendar03Icon, PlusSignIcon, Search01Icon, Tick01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Popover as PopoverPrimitive } from "radix-ui"
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import type { DateRange } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarAvvvatars, AvatarGroup, AvatarImage } from "@/components/ui/avatar"
@@ -16,8 +15,20 @@ import { Switch } from "@/components/ui/switch"
 import { createTask } from "@/app/actions"
 import { markMutation } from "@/hooks/mutation-tracker"
 import { PriorityPicker, PriorityButton } from "@/components/dashboard/priority-picker"
+import { ProjectBadge } from "@/components/dashboard/task-row"
 import type { Priority } from "@/components/dashboard/priority-picker"
 import type { ProjectMember } from "@/lib/data"
+
+function NewTaskIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 23 22" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
+      <circle cx="11" cy="11" r="10.75" fill="var(--color-gray-cool-50)"/>
+      <path d="M10.9991 21.0011C5.47567 21.0011 0.998047 16.5235 0.998047 11.0001C0.998047 5.47665 5.47567 0.999023 10.9991 0.999023C16.3199 0.999023 20.6702 5.15416 20.9823 10.3966" stroke="var(--color-gray-cool-200)" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M16.6072 11.7754V21.2342" stroke="var(--color-gray-cool-200)" strokeWidth="1.50548" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M21.3366 16.5049H11.8777" stroke="var(--color-gray-cool-200)" strokeWidth="1.50548" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
 
 type NewTaskRowProps = {
   projectId?: string
@@ -133,21 +144,14 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
       <div className="relative border-b border-gray-cool-100">
         <div className="flex w-full items-center justify-between px-4 py-4">
           <div className="flex flex-1 min-w-0 items-center gap-2">
-            <Checkbox checked={false} disabled />
+            <NewTaskIcon />
             <span className="text-text-md font-medium truncate text-gray-cool-700">
               {saving}
             </span>
           </div>
 
           {selectedProject && (
-            <Button
-              variant="secondary"
-              size="xxs"
-              leadingIcon={Folder01Icon}
-              className="pointer-events-none"
-            >
-              {selectedProject.title}
-            </Button>
+            <ProjectBadge projectId={selectedProject.id} projectName={selectedProject.title} />
           )}
         </div>
         <div
@@ -168,7 +172,7 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
     <div ref={rowRef} onBlur={handleBlur} className="flex w-full items-center justify-between border-b border-gray-cool-100 px-4 py-4">
       <div className="flex flex-1 min-w-0 flex-col gap-0.5">
         <div className="flex items-center gap-2">
-          <Checkbox checked={false} disabled />
+          <NewTaskIcon />
           <input
             ref={inputRef}
             type="text"
@@ -179,48 +183,38 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
         </div>
 
         <div className="flex items-center pl-[22px]">
-          <PopoverPrimitive.Root open={priorityOpen} onOpenChange={setPriorityOpen}>
-            <PopoverPrimitive.Trigger asChild>
+          <Popover open={priorityOpen} onOpenChange={setPriorityOpen}>
+            <PopoverTrigger asChild>
               <span data-slot="popover-trigger" className="cursor-pointer">
                 <PriorityButton priority={priority} />
               </span>
-            </PopoverPrimitive.Trigger>
-            <PopoverPrimitive.Portal>
-              <PopoverPrimitive.Content
-                side="bottom"
-                align="start"
-                sideOffset={8}
-                className="z-50 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
-                onClick={(e) => e.stopPropagation()}
-                onFocusOutside={(e) => e.preventDefault()}
-              >
-                <PriorityPicker
-                  taskId=""
-                  priority={priority}
-                  onPriorityChange={(p) => {
-                    setPriority(p)
-                    setPriorityOpen(false)
-                  }}
-                />
-              </PopoverPrimitive.Content>
-            </PopoverPrimitive.Portal>
-          </PopoverPrimitive.Root>
+            </PopoverTrigger>
+            <PopoverContent
+              onClick={(e) => e.stopPropagation()}
+              onFocusOutside={(e) => e.preventDefault()}
+            >
+              <PriorityPicker
+                taskId=""
+                priority={priority}
+                onPriorityChange={(p) => {
+                  setPriority(p)
+                  setPriorityOpen(false)
+                }}
+              />
+            </PopoverContent>
+          </Popover>
 
-          <PopoverPrimitive.Root open={calendarOpen} onOpenChange={setCalendarOpen}>
-            <PopoverPrimitive.Trigger asChild>
+          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+            <PopoverTrigger asChild>
               <Button variant="ghost" size="xxs" leadingIcon={Calendar03Icon}>
                 {dateLabel}
               </Button>
-            </PopoverPrimitive.Trigger>
-            <PopoverPrimitive.Portal>
-              <PopoverPrimitive.Content
-                side="bottom"
-                align="start"
-                sideOffset={8}
-                className="z-50 overflow-clip rounded-2xl border border-gray-cool-100 bg-white shadow-[0px_0px_4px_0px_rgba(93,107,152,0.08),0px_8px_16px_0px_rgba(93,107,152,0.08)] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
-                onClick={(e) => e.stopPropagation()}
-                onFocusOutside={(e) => e.preventDefault()}
-              >
+            </PopoverTrigger>
+            <PopoverContent
+              side="bottom"
+              onClick={(e) => e.stopPropagation()}
+              onFocusOutside={(e) => e.preventDefault()}
+            >
                 {rangeMode ? (
                   <RangeCalendar
                     selected={dateRange}
@@ -270,23 +264,18 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
                     </div>
                   )}
                 </div>
-              </PopoverPrimitive.Content>
-            </PopoverPrimitive.Portal>
-          </PopoverPrimitive.Root>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
         {showProjectPicker && (
           <div className="relative shrink-0">
-            <Button
-              variant="secondary"
-              size="xxs"
-              leadingIcon={Folder01Icon}
-              className="pointer-events-none"
-            >
-              {selectedProject?.title ?? "Project"}
-            </Button>
+            <ProjectBadge
+              projectId={selectedProjectId}
+              projectName={selectedProject?.title ?? "Project"}
+            />
             <select
               value={selectedProjectId}
               onChange={(e) => setSelectedProjectId(e.target.value)}
@@ -302,8 +291,8 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
           </div>
         )}
 
-        <PopoverPrimitive.Root open={assigneeOpen} onOpenChange={setAssigneeOpen}>
-          <PopoverPrimitive.Trigger asChild>
+        <Popover open={assigneeOpen} onOpenChange={setAssigneeOpen}>
+          <PopoverTrigger asChild>
             <button type="button" className="flex items-center cursor-pointer outline-none">
               {selectedAssigneeIds.length > 0 && members ? (
                 <AvatarGroup>
@@ -321,21 +310,18 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
                     ))}
                 </AvatarGroup>
               ) : (
-                <span className="relative inline-flex shrink-0 items-center justify-center rounded-full border border-dashed border-gray-cool-200 bg-gray-cool-100 text-gray-cool-400 transition-colors hover:bg-gray-cool-200 hover:text-gray-cool-600 size-6">
+                <span className="relative inline-flex shrink-0 items-center justify-center rounded-full bg-gray-cool-100 text-gray-cool-400 transition-colors hover:bg-gray-cool-200 hover:text-gray-cool-600 size-6">
                   <HugeiconsIcon icon={PlusSignIcon} size={12} color="currentColor" strokeWidth={2} />
                 </span>
               )}
             </button>
-          </PopoverPrimitive.Trigger>
-          <PopoverPrimitive.Portal>
-            <PopoverPrimitive.Content
-              side="bottom"
-              align="end"
-              sideOffset={8}
-              className="z-50 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
-              onClick={(e) => e.stopPropagation()}
-              onFocusOutside={(e) => e.preventDefault()}
-            >
+          </PopoverTrigger>
+          <PopoverContent
+            side="bottom"
+            align="end"
+            onClick={(e) => e.stopPropagation()}
+            onFocusOutside={(e) => e.preventDefault()}
+          >
               <LocalAssigneePicker
                 members={members ?? []}
                 selectedIds={selectedAssigneeIds}
@@ -346,9 +332,8 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
                 }}
                 onClear={() => setSelectedAssigneeIds([])}
               />
-            </PopoverPrimitive.Content>
-          </PopoverPrimitive.Portal>
-        </PopoverPrimitive.Root>
+          </PopoverContent>
+        </Popover>
       </div>
     </div>
   )
@@ -378,7 +363,7 @@ function LocalAssigneePicker({
   }, [members, search])
 
   return (
-    <div className="w-[240px] overflow-clip rounded-3xl border border-gray-cool-100 bg-white shadow-[0px_0px_4px_0px_rgba(93,107,152,0.08),0px_8px_16px_0px_rgba(93,107,152,0.08)]">
+    <div className="w-[240px]">
       <div className="border-b border-gray-cool-100 p-2">
         <Input
           size="md"

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useTransition, useMemo } from "react"
-import { Popover as PopoverPrimitive } from "radix-ui"
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { Search01Icon, Tick01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
@@ -82,10 +82,7 @@ export function AssigneePicker({
 
   return (
     <div
-      className={cn(
-        "w-[240px] overflow-clip rounded-3xl border border-gray-cool-100 bg-white shadow-[0px_0px_4px_0px_rgba(93,107,152,0.08),0px_8px_16px_0px_rgba(93,107,152,0.08)]",
-        className,
-      )}
+      className={cn("w-[240px]", className)}
     >
       {/* Search */}
       <div className="border-b border-gray-cool-100 p-2">
@@ -181,26 +178,19 @@ export function AssigneePopover({
   const [open, setOpen] = useState(false)
 
   return (
-    <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
-      <PopoverPrimitive.Trigger asChild>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
         {children}
-      </PopoverPrimitive.Trigger>
-      <PopoverPrimitive.Portal>
-        <PopoverPrimitive.Content
-          side="bottom"
-          align="end"
-          sideOffset={8}
-          className="z-50 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
-        >
-          <AssigneePicker
-            taskId={taskId}
-            members={members}
-            assignedIds={assignedIds}
-            onChanged={onChanged}
-            onAssignedIdsChange={onAssignedIdsChange}
-          />
-        </PopoverPrimitive.Content>
-      </PopoverPrimitive.Portal>
-    </PopoverPrimitive.Root>
+      </PopoverTrigger>
+      <PopoverContent side="bottom" align="end">
+        <AssigneePicker
+          taskId={taskId}
+          members={members}
+          assignedIds={assignedIds}
+          onChanged={onChanged}
+          onAssignedIdsChange={onAssignedIdsChange}
+        />
+      </PopoverContent>
+    </Popover>
   )
 }

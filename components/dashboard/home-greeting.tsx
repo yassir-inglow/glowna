@@ -26,11 +26,11 @@ export function HomeGreeting() {
   }, [])
 
   return (
-    <section className="space-y-1.5 text-center">
-      <p className="text-text-xl font-medium text-gray-cool-400">
+    <section className="flex flex-col items-center text-center">
+      <p className="text-display-xs font-medium text-gray-cool-300">
         {now ? formatDate(now) : "\u00A0"}
       </p>
-      <h1 className="text-[52px]/none italic text-gray-cool-800 [font-family:'PT_Serif',serif]">
+      <h1 className="text-display-lg font-medium tracking-[-0.96px] text-gray-cool-900">
         {now ? `${getGreeting(now.getHours())}, ${firstName}` : `Hello, ${firstName}`}
       </h1>
     </section>

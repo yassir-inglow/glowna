@@ -11,6 +11,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 
 import { Button } from "@/components/ui/button"
+import { Logo } from "@/components/ui/logo"
 import { Avatar, AvatarAvvvatars, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -54,10 +55,8 @@ function BellIcon() {
 
 function LogoMark() {
   return (
-    <Link href="/" className="relative block size-[46px] rounded-[8px] bg-white/50 p-[10px] transition-opacity hover:opacity-80">
-      <div className="relative size-full rounded-full bg-brand-500">
-        <div className="absolute inset-[4px] rounded-full bg-white" />
-      </div>
+    <Link href="/" className="block transition-opacity hover:opacity-80">
+      <Logo size={42} />
     </Link>
   )
 }

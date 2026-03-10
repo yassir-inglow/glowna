@@ -40,18 +40,42 @@ export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
     (state, deletedId: string) => state.filter((t) => t.id !== deletedId),
   )
 
+  // Drawer open state — lifted here to avoid race conditions with URL updates
+  const [drawerProjectId, setDrawerProjectId] = React.useState<string | null>(
+    () => searchParams.get("project"),
+  )
+
+  // Sync URL → local state for browser back/forward and deep links
+  const urlProjectId = searchParams.get("project")
+  React.useEffect(() => {
+    setDrawerProjectId(urlProjectId)
+  }, [urlProjectId])
+
   useRealtimeRefresh({ table: "tasks" })
   useRealtimeRefresh({ table: "task_assignees" })
   useRealtimeRefresh({ table: "project_members" })
 
   const handleProjectSelect = React.useCallback(
     (projectId: string) => {
+      setDrawerProjectId(projectId)
       const params = new URLSearchParams(searchParams.toString())
       params.set("project", projectId)
-      router.push(`/?${params.toString()}`, { scroll: false })
+      React.startTransition(() => {
+        router.push(`/?${params.toString()}`, { scroll: false })
+      })
     },
     [router, searchParams],
   )
+
+  const handleDrawerClose = React.useCallback(() => {
+    setDrawerProjectId(null)
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete("project")
+    const qs = params.toString()
+    React.startTransition(() => {
+      router.push(qs ? `/?${qs}` : "/", { scroll: false })
+    })
+  }, [router, searchParams])
 
   const handleTabChange = (tab: ProjectTabValue) => {
     setActiveTab(tab)
@@ -108,10 +132,11 @@ export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
               type="button"
               variant="primary"
               size="sm"
-              iconOnly={Add01Icon}
+              leadingIcon={Add01Icon}
               onClick={() => setIsCreating(true)}
-              aria-label="New Project"
-            />
+            >
+              Add project
+            </Button>
           )}
         </div>
       </div>
@@ -195,6 +220,7 @@ export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
                       addText={task.add_text ?? undefined}
                       labelText={task.label_text ?? undefined}
                       commentCount={task.comment_count}
+                      projectId={task.project_id}
                       projectName={task.projects?.title}
                       avatars={task.task_assignees.map((a) => ({
                         src: a.profiles?.avatar_url ?? undefined,
@@ -215,7 +241,7 @@ export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
         )}
       </AnimatePresence>
 
-      <ProjectDrawer projects={projects} />
+      <ProjectDrawer projects={projects} projectId={drawerProjectId} onClose={handleDrawerClose} />
     </div>
   )
 }

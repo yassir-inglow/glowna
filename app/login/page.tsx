@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import Image from "next/image";
+import { Logo } from "@/components/ui/logo";
 
 type Step = "email" | "otp";
 
@@ -158,15 +159,7 @@ function LoginContent() {
       <div className="flex w-full max-w-[404px] flex-col gap-2">
         {step === "email" && (
           <div className="flex flex-col items-center gap-1.5 pb-6">
-            <div className="flex size-[46px] items-center justify-center rounded-md bg-white/50">
-              <Image
-                src="/logo.svg"
-                alt="Glowna"
-                width={24}
-                height={24}
-                className="size-6"
-              />
-            </div>
+            <Logo size={42} />
             <h1 className="text-display-xs font-medium text-text-secondary">
               Sign up
             </h1>

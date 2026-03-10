@@ -2,30 +2,21 @@
 
 import * as React from "react"
 import { useState, useRef, useEffect, useTransition, useMemo } from "react"
-import { AnimatePresence, motion } from "motion/react"
-import { ArrowLeft02Icon, Calendar03Icon } from "@hugeicons/core-free-icons"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Popover as PopoverPrimitive } from "radix-ui"
+import { motion } from "motion/react"
+import { Calendar03Icon, Flag02Icon, User02Icon, Tag01Icon } from "@hugeicons/core-free-icons"
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
 import { Calendar, RangeCalendar } from "@/components/ui/calendar"
-import { Avatar, AvatarAvvvatars, AvatarGroup, AvatarImage } from "@/components/ui/avatar"
-import { AssigneePicker } from "@/components/dashboard/assignee-popover"
-import { PriorityPopover, PriorityButton } from "@/components/dashboard/priority-picker"
+import { AssigneePopover } from "@/components/dashboard/assignee-popover"
+import { PriorityPopover, getPriorityConfig } from "@/components/dashboard/priority-picker"
 import type { Priority } from "@/components/dashboard/priority-picker"
 import { updateTaskTitle, updateTaskDates, toggleTaskCompleted } from "@/app/actions"
 import { markMutation, hasRecentLocalMutation } from "@/hooks/mutation-tracker"
 import type { ProjectMember, TaskWithProject } from "@/lib/data"
 import type { DateRange } from "react-day-picker"
-
-function getInitials(name: string | null | undefined): string {
-  if (!name) return "?"
-  const parts = name.includes("@") ? [name.split("@")[0]] : name.trim().split(/\s+/)
-  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-  return parts[0].slice(0, 2).toUpperCase()
-}
 
 type TaskDetailPanelProps = {
   task: TaskWithProject
@@ -158,10 +149,6 @@ export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleC
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
   }
 
-  function fmtDisplay(d: Date) {
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-  }
-
   // ── Assignees ──────────────────────────────────────────────────────────────
   const [localAssignedIds, setLocalAssignedIds] = useState<string[]>(
     task.task_assignees.map((a) => a.profiles?.id).filter(Boolean) as string[],
@@ -178,6 +165,20 @@ export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleC
     [localAssignedIds, members],
   )
 
+  const dateLabel = rangeMode && dateRange?.from
+    ? `${dateRange.from.toLocaleDateString("en-US", { month: "short", day: "numeric" })}${dateRange.to ? ` – ${dateRange.to.toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}`
+    : dueDate
+      ? dueDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      : "Date"
+
+  const priorityConfig = getPriorityConfig(task.priority ?? "none")
+
+  const assigneeLabel = displayAssignees.length === 0
+    ? "Assignee"
+    : displayAssignees.length === 1
+      ? (displayAssignees[0].full_name || displayAssignees[0].email?.split("@")[0] || "Assignee")
+      : `${displayAssignees.length} assignees`
+
   return (
     <motion.div
       initial={{ x: "100%" }}
@@ -186,61 +187,31 @@ export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleC
       transition={{ type: "spring", damping: 30, stiffness: 300 }}
       className="absolute inset-y-2.5 right-2.5 z-10 flex w-[60%] min-[1400px]:w-[40%] flex-col rounded-[26px] border border-gray-cool-100 bg-bg-primary shadow-[-8px_0_32px_-4px_rgba(93,107,152,0.10)] overflow-y-auto scrollbar-hidden"
     >
-      {/* Header */}
-      <div className="flex items-center gap-3 border-b border-gray-cool-100 px-6 py-4">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Back to task list"
-          onClick={onClose}
-        >
-          <HugeiconsIcon icon={ArrowLeft02Icon} size={18} />
-        </Button>
-        <input
-          ref={inputRef}
-          value={title}
-          onChange={handleTitleChange}
-          onBlur={saveTitle}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); saveTitle(); inputRef.current?.blur() } }}
-          className="flex-1 bg-transparent text-display-xs font-medium text-gray-cool-800 outline-none placeholder:text-gray-cool-300"
-          placeholder="Task title"
-        />
-      </div>
-
-      {/* Body */}
-      <div className="flex flex-col gap-6 px-6 py-6">
-        {/* Status */}
-        <div className="flex items-center gap-3">
-          <span className="w-24 shrink-0 text-text-sm font-medium text-gray-cool-400">Status</span>
-          <div className="flex items-center gap-2">
-            <Checkbox checked={completed} onCheckedChange={handleCheckedChange} />
-            <span className="text-text-sm font-medium text-gray-cool-600">
-              {completed ? "Completed" : "To do"}
-            </span>
-          </div>
+      <div className="flex flex-col gap-3 px-6 pt-6 pb-5">
+        {/* Task name */}
+        <div className="flex items-start gap-3">
+          <Checkbox checked={completed} onCheckedChange={handleCheckedChange} className="mt-2" />
+          <input
+            ref={inputRef}
+            value={title}
+            onChange={handleTitleChange}
+            onBlur={saveTitle}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); saveTitle(); inputRef.current?.blur() } }}
+            className="flex-1 bg-transparent text-display-xs font-medium text-gray-cool-800 outline-none placeholder:text-gray-cool-300"
+            placeholder="Task name"
+          />
         </div>
 
-        {/* Due date */}
-        <div className="flex items-center gap-3">
-          <span className="w-24 shrink-0 text-text-sm font-medium text-gray-cool-400">Due date</span>
-          <PopoverPrimitive.Root open={calendarOpen} onOpenChange={setCalendarOpen}>
-            <PopoverPrimitive.Trigger asChild>
-              <Button variant="secondary" size="xs" leadingIcon={Calendar03Icon}>
-                {rangeMode && dateRange?.from
-                  ? `${fmtDisplay(dateRange.from)}${dateRange.to ? ` – ${fmtDisplay(dateRange.to)}` : ""}`
-                  : dueDate
-                    ? fmtDisplay(dueDate)
-                    : "Add date"}
+        {/* Action buttons */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Date */}
+          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="secondary" size="xxs" leadingIcon={Calendar03Icon}>
+                {dateLabel}
               </Button>
-            </PopoverPrimitive.Trigger>
-            <PopoverPrimitive.Portal>
-              <PopoverPrimitive.Content
-                side="bottom"
-                align="start"
-                sideOffset={8}
-                className="z-50 overflow-clip rounded-2xl border border-gray-cool-100 bg-white shadow-[0px_0px_4px_0px_rgba(93,107,152,0.08),0px_8px_16px_0px_rgba(93,107,152,0.08)] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
-              >
+            </PopoverTrigger>
+            <PopoverContent side="bottom">
                 {rangeMode ? (
                   <RangeCalendar
                     selected={dateRange}
@@ -299,58 +270,51 @@ export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleC
                     }}
                   />
                 </div>
-              </PopoverPrimitive.Content>
-            </PopoverPrimitive.Portal>
-          </PopoverPrimitive.Root>
-        </div>
+            </PopoverContent>
+          </Popover>
 
-        {/* Priority */}
-        <div className="flex items-center gap-3">
-          <span className="w-24 shrink-0 text-text-sm font-medium text-gray-cool-400">Priority</span>
+          {/* Assignee */}
+          <AssigneePopover
+            taskId={task.id}
+            members={members}
+            assignedIds={localAssignedIds}
+            onAssignedIdsChange={(ids) => {
+              setLocalAssignedIds(ids)
+              onAssigneeChange?.(task.id, ids)
+            }}
+          >
+            <Button variant="secondary" size="xxs" leadingIcon={User02Icon}>
+              {assigneeLabel}
+            </Button>
+          </AssigneePopover>
+
+          {/* Priority */}
           <PriorityPopover
             taskId={task.id}
             priority={(task.priority ?? "none") as Priority}
             onPriorityChange={(p) => onPriorityChange?.(task.id, p)}
           >
-            <span>
-              <PriorityButton priority={(task.priority ?? "none") as Priority} />
-            </span>
+            <Button variant="secondary" size="xxs" leadingIcon={Flag02Icon}>
+              {priorityConfig ? priorityConfig.label : "Priority"}
+            </Button>
           </PriorityPopover>
-        </div>
 
-        {/* Assignees */}
-        <div className="flex items-start gap-3">
-          <span className="w-24 shrink-0 pt-1 text-text-sm font-medium text-gray-cool-400">Assignees</span>
-          <div className="flex flex-col gap-3">
-            {displayAssignees.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {displayAssignees.map((m) => (
-                  <div key={m.id} className="flex items-center gap-1.5 rounded-full bg-alpha-900 py-1 pl-1 pr-2.5">
-                    <Avatar size="xs">
-                      {m.avatar_url ? (
-                        <AvatarImage src={m.avatar_url} alt="" />
-                      ) : (
-                        <AvatarAvvvatars value={m.full_name ?? m.email ?? m.id} />
-                      )}
-                    </Avatar>
-                    <span className="text-text-xs font-medium text-gray-cool-600">
-                      {m.full_name || m.email?.split("@")[0] || "Unknown"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-            <AssigneePicker
-              taskId={task.id}
-              members={members}
-              assignedIds={localAssignedIds}
-              onAssignedIdsChange={(ids) => {
-                setLocalAssignedIds(ids)
-                onAssigneeChange?.(task.id, ids)
-              }}
-            />
-          </div>
+          {/* Label (placeholder) */}
+          <Button variant="secondary" size="xxs" leadingIcon={Tag01Icon}>
+            Label
+          </Button>
         </div>
+      </div>
+
+      {/* Divider */}
+      <div className="border-t border-gray-cool-100 mx-6" />
+
+      {/* Description */}
+      <div className="flex-1 px-6 py-4">
+        <textarea
+          placeholder="Description"
+          className="w-full min-h-[120px] resize-none bg-transparent text-text-sm text-gray-cool-600 outline-none placeholder:text-gray-cool-300"
+        />
       </div>
     </motion.div>
   )

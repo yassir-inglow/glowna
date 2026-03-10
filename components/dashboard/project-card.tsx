@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation"
 import {
   Delete02Icon,
   Share08Icon,
+  Folder01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
-import { Avatar, AvatarAvvvatars, AvatarImage, AvatarGroup, AvatarGroupSkeleton, AvatarSkeleton } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   DropdownMenu,
@@ -38,48 +38,40 @@ function MoreIcon() {
   )
 }
 
-function AvatarStack({
-  members,
-  ownerId,
-  compact = false,
-}: {
-  members: ProjectMember[]
-  ownerId: string
-  compact?: boolean
-}) {
-  const hasCollaborators = members.some((m) => m.id !== ownerId)
+const PROJECT_COLORS = [
+  "#111322", "#6366F1", "#3B82F6", "#10B981",
+  "#F59E0B", "#EC4899", "#8B5CF6", "#14B8A6",
+]
 
-  if (!hasCollaborators) return null
+function hashCode(str: string) {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0
+  }
+  return Math.abs(hash)
+}
 
-  const visible = compact ? members.slice(0, 1) : members
+function ProjectIcon({ projectId }: { projectId: string }) {
+  const color = PROJECT_COLORS[hashCode(projectId) % PROJECT_COLORS.length]
 
   return (
-    <AvatarGroup>
-      {visible.map((member) => (
-        <Avatar
-          key={member.id}
-          size="xs"
-          className="ring-[1.5px] ring-white"
-        >
-          {member.avatar_url ? (
-            <AvatarImage src={member.avatar_url} alt="" />
-          ) : (
-            <AvatarAvvvatars value={member.full_name ?? member.email ?? member.id} />
-          )}
-        </Avatar>
-      ))}
-    </AvatarGroup>
+    <div
+      className="relative size-[31px] shrink-0 overflow-hidden rounded-full"
+      style={{ backgroundColor: color }}
+    >
+      <div className="flex size-full items-center justify-center">
+        <HugeiconsIcon icon={Folder01Icon} size={18} color="white" strokeWidth={1.5} />
+      </div>
+      <div className="pointer-events-none absolute inset-0 rounded-full shadow-[inset_0px_7px_13.9px_0px_rgba(255,255,255,0.4)]" />
+    </div>
   )
 }
 
 export function ProjectCardSkeleton() {
   return (
-    <div className="flex h-[200px] flex-col justify-between rounded-[24px] border border-gray-cool-100 bg-gradient-to-b from-gray-cool-25 to-gray-cool-50 p-4">
-      <div className="flex items-center justify-between">
-        <AvatarGroupSkeleton count={3} size="xs" />
-        <Skeleton className="size-7 rounded-full" />
-      </div>
-      <div className="space-y-2.5">
+    <div className="flex h-[200px] flex-col justify-between rounded-[24px] bg-alpha-900 p-4">
+      <Skeleton className="size-[31px] rounded-full" />
+      <div className="space-y-2">
         <Skeleton className="h-5 w-32 rounded-md" />
         <Skeleton className="h-3.5 w-48 rounded-md" />
       </div>
@@ -136,17 +128,20 @@ export function ProjectCard({
       onClick={handleCardClick}
       onKeyDown={(e) => { if (e.key === "Enter") handleCardClick() }}
       className={cn(
-        "flex h-[200px] cursor-pointer flex-col justify-between rounded-[24px] border border-gray-cool-100 bg-gradient-to-b from-gray-cool-25 to-gray-cool-50 p-4 transition-all duration-200 hover:border-gray-cool-200 hover:shadow-[0px_7px_8px_-4px_rgba(93,107,152,0.1)]",
+        "group flex h-[200px] cursor-pointer flex-col justify-between rounded-[24px] bg-alpha-900 p-4 transition-colors duration-200 hover:bg-alpha-800",
         isPending && "pointer-events-none opacity-50",
       )}
     >
       <div className="flex items-center justify-between">
-        <AvatarStack members={members} ownerId={ownerId} compact={compactAvatars} />
+        <ProjectIcon projectId={id} />
         <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="relative z-10 ml-auto rounded-full bg-gray-cool-50 p-1 text-gray-cool-500 transition-colors hover:bg-gray-cool-100"
+              className={cn(
+                "relative z-10 ml-auto rounded-full bg-alpha-900 p-1.5 text-gray-cool-400 transition-opacity hover:bg-alpha-800",
+                menuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+              )}
               aria-label="Project options"
               onClick={(e) => e.stopPropagation()}
             >
@@ -167,8 +162,8 @@ export function ProjectCard({
         </DropdownMenu>
       </div>
 
-      <div className="space-y-2">
-        <h3 className="text-[22px]/none italic text-gray-cool-700 [font-family:'PT_Serif',serif]">
+      <div>
+        <h3 className="text-text-xl font-medium text-gray-cool-700">
           {title}
         </h3>
         {description ? (

@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowDown01Icon } from "@hugeicons/core-free-icons"
 
 import { AnimatePresence, motion } from "motion/react"
@@ -22,13 +21,11 @@ import type { ProjectWithMembers, TaskWithProject } from "@/lib/data"
 
 type ProjectDrawerProps = {
   projects: ProjectWithMembers[]
+  projectId: string | null
+  onClose: () => void
 }
 
-export function ProjectDrawer({ projects }: ProjectDrawerProps) {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const projectId = searchParams.get("project")
-
+export function ProjectDrawer({ projects, projectId, onClose }: ProjectDrawerProps) {
   const [tasks, setTasks] = React.useState<TaskWithProject[] | null>(null)
   const [loading, setLoading] = React.useState(false)
   const [selectedTaskId, setSelectedTaskId] = React.useState<string | null>(null)
@@ -39,11 +36,18 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
     [projectId, projects],
   )
 
-  const [manualClose, setManualClose] = React.useState(false)
-  const isOpen = !!project && !manualClose
+  const isOpen = !!project
 
-  // Reset once the URL actually catches up
-  React.useEffect(() => { setManualClose(false) }, [projectId])
+  // Task cache: show cached data immediately on reopen, refetch in background
+  const taskCacheRef = React.useRef<Map<string, TaskWithProject[]>>(new Map())
+  const cacheSet = React.useCallback((pid: string, data: TaskWithProject[]) => {
+    const cache = taskCacheRef.current
+    if (cache.size >= 20) {
+      const firstKey = cache.keys().next().value
+      if (firstKey !== undefined) cache.delete(firstKey)
+    }
+    cache.set(pid, data)
+  }, [])
 
   // Refs for values accessed inside realtime callbacks (avoids effect re-subscription)
   const tasksRef = React.useRef(tasks)
@@ -67,7 +71,7 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
     return (data as TaskWithProject[]) ?? []
   }, [])
 
-  // Fetch tasks client-side when project changes
+  // Fetch tasks client-side when project changes (cache-first)
   React.useEffect(() => {
     if (!projectId) {
       setTasks(null)
@@ -76,18 +80,32 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
     }
 
     setSelectedTaskId(null)
-    let cancelled = false
-    setLoading(true)
 
+    // Cache hit: show cached data immediately, no skeleton
+    const cached = taskCacheRef.current.get(projectId)
+    if (cached) {
+      setTasks(cached)
+      setLoading(false)
+    } else {
+      setTasks(null)
+      setLoading(true)
+    }
+
+    // Always refetch in background for fresh data
+    let cancelled = false
     fetchProjectTasks(projectId).then((result) => {
-      if (!cancelled && result) setTasks(result)
-      if (!cancelled) setLoading(false)
+      if (cancelled) return
+      if (result) {
+        setTasks(result)
+        cacheSet(projectId, result)
+      }
+      setLoading(false)
     })
 
     return () => {
       cancelled = true
     }
-  }, [projectId, fetchProjectTasks])
+  }, [projectId, fetchProjectTasks, cacheSet])
 
   // Deduplication + version guard: skip redundant refetches within 300ms and
   // discard results if postgres_changes patched data while the fetch was in-flight.
@@ -102,9 +120,12 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
       const vBefore = patchVersionRef.current
       const result = await fetchProjectTasks(pid)
       if (patchVersionRef.current > vBefore) return
-      if (result) setTasks(result)
+      if (result) {
+        setTasks(result)
+        cacheSet(pid, result)
+      }
     },
-    [fetchProjectTasks],
+    [fetchProjectTasks, cacheSet],
   )
 
   // Realtime subscription: payload-patch for instant updates + background refetch
@@ -299,21 +320,14 @@ export function ProjectDrawer({ projects }: ProjectDrawerProps) {
   const handleTaskCreated = React.useCallback(async () => {
     if (!projectId) return
     const result = await fetchProjectTasks(projectId)
-    if (result) setTasks(result)
-  }, [projectId, fetchProjectTasks])
-
-  function handleClose() {
-    setManualClose(true)
-    const params = new URLSearchParams(searchParams.toString())
-    params.delete("project")
-    const qs = params.toString()
-    React.startTransition(() => {
-      router.push(qs ? `/?${qs}` : "/", { scroll: false })
-    })
-  }
+    if (result) {
+      setTasks(result)
+      cacheSet(projectId, result)
+    }
+  }, [projectId, fetchProjectTasks, cacheSet])
 
   function handleOpenChange(open: boolean) {
-    if (!open) handleClose()
+    if (!open) onClose()
   }
 
   const selectedTask = selectedTaskId && tasks ? tasks.find((t) => t.id === selectedTaskId) ?? null : null

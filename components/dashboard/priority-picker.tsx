@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { Popover as PopoverPrimitive } from "radix-ui"
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import {
   Flag02Icon,
   Tick01Icon,
@@ -57,10 +57,7 @@ export function PriorityPicker({
 
   return (
     <div
-      className={cn(
-        "w-[200px] overflow-clip rounded-3xl border border-gray-cool-100 bg-white shadow-[0px_0px_4px_0px_rgba(93,107,152,0.08),0px_8px_16px_0px_rgba(93,107,152,0.08)]",
-        className,
-      )}
+      className={cn("w-[200px]", className)}
     >
       <div className="flex flex-col py-1">
         {PRIORITY_OPTIONS.map((option) => (
@@ -125,29 +122,21 @@ export function PriorityPopover({
   const [open, setOpen] = useState(false)
 
   return (
-    <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
-      <PopoverPrimitive.Trigger asChild>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
         {children}
-      </PopoverPrimitive.Trigger>
-      <PopoverPrimitive.Portal>
-        <PopoverPrimitive.Content
-          side="bottom"
-          align="start"
-          sideOffset={8}
-          className="z-50 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <PriorityPicker
-            taskId={taskId}
-            priority={priority}
-            onPriorityChange={(v) => {
-              onPriorityChange?.(v)
-              setOpen(false)
-            }}
-          />
-        </PopoverPrimitive.Content>
-      </PopoverPrimitive.Portal>
-    </PopoverPrimitive.Root>
+      </PopoverTrigger>
+      <PopoverContent onClick={(e) => e.stopPropagation()}>
+        <PriorityPicker
+          taskId={taskId}
+          priority={priority}
+          onPriorityChange={(v) => {
+            onPriorityChange?.(v)
+            setOpen(false)
+          }}
+        />
+      </PopoverContent>
+    </Popover>
   )
 }
 

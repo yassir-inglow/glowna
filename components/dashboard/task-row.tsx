@@ -12,7 +12,7 @@ import {
   Calendar03Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Popover as PopoverPrimitive } from "radix-ui"
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarAvvvatars, AvatarGroup, AvatarImage, AvatarSkeleton } from "@/components/ui/avatar"
@@ -35,6 +35,40 @@ function initials(name: string | null | undefined): string {
   const parts = name.includes("@") ? [name.split("@")[0]] : name.trim().split(/\s+/)
   if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
   return parts[0].slice(0, 2).toUpperCase()
+}
+
+const PROJECT_COLORS = [
+  "#111322", "#6366F1", "#3B82F6", "#10B981",
+  "#F59E0B", "#EC4899", "#8B5CF6", "#14B8A6",
+]
+
+function hashCode(str: string) {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0
+  }
+  return Math.abs(hash)
+}
+
+export function ProjectBadge({ projectId, projectName }: { projectId: string; projectName: string }) {
+  const color = PROJECT_COLORS[hashCode(projectId) % PROJECT_COLORS.length]
+
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-alpha-900 py-px pl-px pr-2.5">
+      <span
+        className="relative size-6 shrink-0 overflow-hidden rounded-full"
+        style={{ backgroundColor: color }}
+      >
+        <span className="flex size-full items-center justify-center">
+          <HugeiconsIcon icon={Folder01Icon} size={14} color="white" strokeWidth={1.5} />
+        </span>
+        <span className="pointer-events-none absolute inset-0 rounded-full shadow-[inset_0px_5.4px_10.8px_0px_rgba(255,255,255,0.4)]" />
+      </span>
+      <span className="text-text-xs font-medium text-gray-cool-500 whitespace-nowrap">
+        {projectName}
+      </span>
+    </span>
+  )
 }
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -81,6 +115,7 @@ export type TaskRowProps = {
   addText?: string
   labelText?: string
   commentCount?: number
+  projectId?: string
   projectName?: string
   avatars?: TaskRowAvatar[]
   selected?: boolean
@@ -113,6 +148,7 @@ export function TaskRow({
   addText = "Text",
   labelText = "Label",
   commentCount = 2,
+  projectId,
   projectName,
   avatars = [],
   selected = false,
@@ -317,8 +353,8 @@ export function TaskRow({
             </PriorityPopover>
           )}
 
-          <PopoverPrimitive.Root open={calendarOpen} onOpenChange={setCalendarOpen}>
-            <PopoverPrimitive.Trigger asChild>
+          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+            <PopoverTrigger asChild>
               <Button variant="ghost" size="xxs" leadingIcon={Calendar03Icon}>
                 {rangeMode && dateRange?.from
                   ? `${dateRange.from.toLocaleDateString("en-US", { month: "short", day: "numeric" })}${dateRange.to ? ` – ${dateRange.to.toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}`
@@ -326,15 +362,8 @@ export function TaskRow({
                     ? dueDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })
                     : "Date"}
               </Button>
-            </PopoverPrimitive.Trigger>
-            <PopoverPrimitive.Portal>
-              <PopoverPrimitive.Content
-                side="bottom"
-                align="start"
-                sideOffset={8}
-                className="z-50 overflow-clip rounded-2xl border border-gray-cool-100 bg-white shadow-[0px_0px_4px_0px_rgba(93,107,152,0.08),0px_8px_16px_0px_rgba(93,107,152,0.08)] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
-                onClick={(e) => e.stopPropagation()}
-              >
+            </PopoverTrigger>
+            <PopoverContent side="bottom" onClick={(e) => e.stopPropagation()}>
                 {rangeMode ? (
                   <RangeCalendar
                     selected={dateRange}
@@ -440,19 +469,16 @@ export function TaskRow({
                     </div>
                   )}
                 </div>
-              </PopoverPrimitive.Content>
-            </PopoverPrimitive.Portal>
-          </PopoverPrimitive.Root>
+            </PopoverContent>
+          </Popover>
         </div>
         )}
       </div>
 
       {/* Right: project badge + avatars */}
       <div className="flex items-center gap-2 shrink-0">
-        {projectName && (
-          <Button variant="secondary" size="xxs" leadingIcon={Folder01Icon}>
-            {projectName}
-          </Button>
+        {projectId && projectName && (
+          <ProjectBadge projectId={projectId} projectName={projectName} />
         )}
 
         {id && members ? (
@@ -482,7 +508,7 @@ export function TaskRow({
               ) : (
                 <span
                   data-slot="avatar"
-                  className="relative inline-flex shrink-0 items-center justify-center rounded-full border border-dashed border-gray-cool-200 bg-gray-cool-100 text-gray-cool-400 transition-colors hover:bg-gray-cool-200 hover:text-gray-cool-600 size-6"
+                  className="relative inline-flex shrink-0 items-center justify-center rounded-full bg-gray-cool-100 text-gray-cool-400 transition-colors hover:bg-gray-cool-200 hover:text-gray-cool-600 size-6"
                 >
                   <HugeiconsIcon icon={PlusSignIcon} size={12} color="currentColor" strokeWidth={2} />
                 </span>
