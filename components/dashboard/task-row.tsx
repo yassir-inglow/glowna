@@ -38,7 +38,7 @@ function initials(name: string | null | undefined): string {
 }
 
 const PROJECT_COLORS = [
-  "#111322", "#6366F1", "#3B82F6", "#10B981",
+  "#FF004A", "#6366F1", "#3B82F6", "#10B981",
   "#F59E0B", "#EC4899", "#8B5CF6", "#14B8A6",
 ]
 

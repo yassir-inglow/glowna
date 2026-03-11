@@ -21,7 +21,7 @@ export function projectRemovedEmail({
           <p style="margin:0 0 8px;font-size:14px;color:#6b7280;">Glowna</p>
           <h1 style="margin:0 0 12px;font-size:20px;font-weight:600;color:#111827;">${removerName} removed you from "${projectName}"</h1>
           <p style="margin:0 0 28px;font-size:15px;line-height:1.6;color:#6b7280;">You no longer have access to this project. If you think this was a mistake, reach out to the project owner.</p>
-          <a href="${dashboardUrl}" style="display:inline-block;padding:12px 28px;background:#6366f1;color:#ffffff;text-decoration:none;border-radius:999px;font-size:15px;font-weight:500;">Go to dashboard</a>
+          <a href="${dashboardUrl}" style="display:inline-block;padding:12px 28px;background:#FF004A;color:#ffffff;text-decoration:none;border-radius:999px;font-size:15px;font-weight:500;">Go to dashboard</a>
         </td></tr>
         <tr><td style="padding:0 32px 32px;">
           <p style="margin:0;font-size:13px;line-height:1.5;color:#9ca3af;">If you have any questions, contact the project owner directly.</p>

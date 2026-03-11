@@ -33,18 +33,18 @@
   --color-gray-cool-950: #0E101B;
 
   /* Brand */
-  --color-brand-25: #F7F7F9;
-  --color-brand-50: #EEEEF3;
-  --color-brand-100: #D5D6E0;
-  --color-brand-200: #BCBDCD;
-  --color-brand-300: #8A8CA8;
-  --color-brand-400: #4D5073;
-  --color-brand-500: #111322;
-  --color-brand-600: #1E2038;
-  --color-brand-700: #0E101B;
-  --color-brand-800: #0A0C14;
-  --color-brand-900: #07080E;
-  --color-brand-950: #040507;
+  --color-brand-25: #FFF5F8;
+  --color-brand-50: #FFE5EC;
+  --color-brand-100: #FFCCD8;
+  --color-brand-200: #FF99B1;
+  --color-brand-300: #FF668A;
+  --color-brand-400: #FF3367;
+  --color-brand-500: #FF004A;
+  --color-brand-600: #D9003F;
+  --color-brand-700: #B30034;
+  --color-brand-800: #8C0029;
+  --color-brand-900: #66001E;
+  --color-brand-950: #400013;
 
   /* Alpha (Gray Cool 600 base at varying opacities) */
   --color-alpha-25: rgba(74, 85, 120, 0.98);
