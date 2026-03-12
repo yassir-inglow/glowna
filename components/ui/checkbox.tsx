@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils"
 import { useSound } from "@/hooks/use-sound"
 import { glitch004Sound } from "@/lib/glitch-004"
 
-function CheckIcon({
+export function CheckIcon({
   durationMs = 320,
   animate = true,
 }: { durationMs?: number; animate?: boolean }) {

@@ -13,6 +13,7 @@ import { TaskRow } from "@/components/dashboard/task-row"
 import { TaskContextMenu } from "@/components/dashboard/task-context-menu"
 import { NewTaskRow } from "@/components/dashboard/new-task-row"
 import { SharePopover } from "@/components/dashboard/invite-popover"
+import { KanbanBoard } from "@/components/dashboard/kanban-board"
 import { useRealtimeRefresh } from "@/hooks/use-realtime-refresh"
 import { useProjectPresence } from "@/hooks/use-project-presence"
 import { useUser } from "@/components/dashboard/user-provider"
@@ -42,9 +43,13 @@ type ProjectDetailProps = {
   selectedTaskId?: string | null
   /** Called when a task's priority changes (for optimistic sync in the drawer). */
   onTaskPriorityChange?: (taskId: string, priority: Priority) => void
+  /** Called when a task's status changes (board drag-and-drop). */
+  onTaskStatusChange?: (taskId: string, status: string) => void
+  /** Called when tasks are reordered on the board. */
+  onTaskReorder?: (updates: { id: string; status: string; board_position: number }[]) => void
 }
 
-export function ProjectDetail({ project, tasks, onDeleteTask, onTaskToggle, onTaskCreated, enableRealtimeRefresh = true, onTaskSelect, selectedTaskId, onTaskPriorityChange }: ProjectDetailProps) {
+export function ProjectDetail({ project, tasks, onDeleteTask, onTaskToggle, onTaskCreated, enableRealtimeRefresh = true, onTaskSelect, selectedTaskId, onTaskPriorityChange, onTaskStatusChange, onTaskReorder }: ProjectDetailProps) {
   const [activeView, setActiveView] = React.useState("overview")
   const [optimisticTasks, removeOptimisticTask] = React.useOptimistic(
     tasks,
@@ -77,7 +82,7 @@ export function ProjectDetail({ project, tasks, onDeleteTask, onTaskToggle, onTa
   useRealtimeRefresh({ table: "project_members", filter: `project_id=eq.${project.id}`, enabled: enableRealtimeRefresh })
 
   return (
-    <div className="space-y-6">
+    <div className="h-full space-y-6">
       <div className="flex items-center justify-between">
         <Button
           type="button"
@@ -147,42 +152,57 @@ export function ProjectDetail({ project, tasks, onDeleteTask, onTaskToggle, onTa
         <SearchButton />
       </div>
 
-      <div className="overflow-hidden">
-        <NewTaskRow
-          projectId={project.id}
-          members={project.members}
-          onCreated={onTaskCreated}
+      {activeView === "board" ? (
+        <KanbanBoard
+          tasks={optimisticTasks}
+          project={project}
+          onTaskToggle={onTaskToggle}
+          onTaskCreated={onTaskCreated}
+          onDeleteTask={(taskId) => { removeOptimisticTask(taskId); onDeleteTask?.(taskId) }}
+          onTaskSelect={onTaskSelect}
+          selectedTaskId={selectedTaskId}
+          onTaskPriorityChange={onTaskPriorityChange}
+          onTaskStatusChange={onTaskStatusChange}
+          onTaskReorder={onTaskReorder}
         />
-        {optimisticTasks.map((task) => (
-          <TaskContextMenu key={task.id} taskId={task.id} projectId={task.project_id} onDelete={() => { removeOptimisticTask(task.id); onDeleteTask?.(task.id) }}>
-            <TaskRow
-              id={task.id}
-              title={task.title}
-              completed={task.completed}
-              onCompletedChange={onTaskToggle ? (checked) => onTaskToggle(task.id, checked) : undefined}
-              showAddons={!!(task.sub_task_total || task.add_text || task.label_text || task.comment_count)}
-              subTaskCurrent={task.sub_task_current}
-              subTaskTotal={task.sub_task_total}
-              addText={task.add_text ?? undefined}
-              labelText={task.label_text ?? undefined}
-              commentCount={task.comment_count}
-              avatars={task.task_assignees.map((a) => ({
-                src: a.profiles?.avatar_url ?? undefined,
-                fallback: getInitials(a.profiles?.full_name ?? a.profiles?.email),
-                value: a.profiles?.full_name ?? a.profiles?.email ?? undefined,
-              }))}
-              members={project.members}
-              assignedIds={task.task_assignees.map((a) => a.profiles?.id).filter(Boolean) as string[]}
-              selected={selectedTaskId === task.id}
-              initialDueDate={task.due_date}
-              initialDueDateEnd={task.due_date_end}
-              priority={(task.priority ?? "none") as Priority}
-              onPriorityChange={onTaskPriorityChange ? (p) => onTaskPriorityChange(task.id, p) : undefined}
-              onSelect={onTaskSelect ? () => onTaskSelect(task.id) : undefined}
-            />
-          </TaskContextMenu>
-        ))}
-      </div>
+      ) : (
+        <div className="overflow-hidden">
+          <NewTaskRow
+            projectId={project.id}
+            members={project.members}
+            onCreated={onTaskCreated}
+          />
+          {optimisticTasks.map((task) => (
+            <TaskContextMenu key={task.id} taskId={task.id} projectId={task.project_id} onDelete={() => { removeOptimisticTask(task.id); onDeleteTask?.(task.id) }}>
+              <TaskRow
+                id={task.id}
+                title={task.title}
+                completed={task.completed}
+                onCompletedChange={onTaskToggle ? (checked) => onTaskToggle(task.id, checked) : undefined}
+                showAddons={!!(task.sub_task_total || task.add_text || task.label_text || task.comment_count)}
+                subTaskCurrent={task.sub_task_current}
+                subTaskTotal={task.sub_task_total}
+                addText={task.add_text ?? undefined}
+                labelText={task.label_text ?? undefined}
+                commentCount={task.comment_count}
+                avatars={task.task_assignees.map((a) => ({
+                  src: a.profiles?.avatar_url ?? undefined,
+                  fallback: getInitials(a.profiles?.full_name ?? a.profiles?.email),
+                  value: a.profiles?.full_name ?? a.profiles?.email ?? undefined,
+                }))}
+                members={project.members}
+                assignedIds={task.task_assignees.map((a) => a.profiles?.id).filter(Boolean) as string[]}
+                selected={selectedTaskId === task.id}
+                initialDueDate={task.due_date}
+                initialDueDateEnd={task.due_date_end}
+                priority={(task.priority ?? "none") as Priority}
+                onPriorityChange={onTaskPriorityChange ? (p) => onTaskPriorityChange(task.id, p) : undefined}
+                onSelect={onTaskSelect ? () => onTaskSelect(task.id) : undefined}
+              />
+            </TaskContextMenu>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

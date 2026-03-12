@@ -58,11 +58,14 @@ export async function signOut() {
 export async function toggleTaskCompleted(taskId: string, completed: boolean) {
   const { supabase, user } = await requireUser()
 
+  // Sync status with completed flag
+  const status = completed ? "done" : "todo"
+
   // Single query: update + return project_id. RLS ensures the user has access;
   // manual ownership check is a fallback if no row is returned.
   const { data, error } = await supabase
     .from("tasks")
-    .update({ completed })
+    .update({ completed, status })
     .eq("id", taskId)
     .select("project_id")
     .maybeSingle()
@@ -86,7 +89,7 @@ export async function toggleTaskCompleted(taskId: string, completed: boolean) {
 export async function createTask(
   projectId: string,
   title: string,
-  options?: { dueDate?: string | null; dueDateEnd?: string | null; assigneeIds?: string[]; priority?: string },
+  options?: { dueDate?: string | null; dueDateEnd?: string | null; assigneeIds?: string[]; priority?: string; status?: string; boardPosition?: number },
 ) {
   const { supabase, user } = await requireUser()
   await requireProjectAccess(supabase, user.id, projectId)
@@ -101,6 +104,8 @@ export async function createTask(
       due_date: options?.dueDate ?? null,
       due_date_end: options?.dueDateEnd ?? null,
       priority: options?.priority ?? "none",
+      status: options?.status ?? "todo",
+      board_position: options?.boardPosition ?? 0,
     })
     .select("id, created_at")
     .single()
@@ -625,4 +630,41 @@ export async function clearTaskAssignees(taskId: string) {
 
   revalidatePath("/")
   revalidatePath(`/projects/${task.project_id}`)
+}
+
+export async function updateTaskStatus(taskId: string, status: string) {
+  const { supabase, user } = await requireUser()
+  const task = await requireTaskAccess(supabase, user.id, taskId)
+
+  const completed = status === "done"
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({ status, completed })
+    .eq("id", taskId)
+
+  if (error) throw error
+
+  revalidatePath(`/projects/${task.project_id}`)
+  revalidatePath("/")
+}
+
+export async function reorderTasksInColumn(
+  updates: { id: string; status: string; board_position: number }[],
+) {
+  const { supabase, user } = await requireUser()
+  if (updates.length === 0) return
+
+  const task = await requireTaskAccess(supabase, user.id, updates[0].id)
+
+  for (const u of updates) {
+    const completed = u.status === "done"
+    await supabase
+      .from("tasks")
+      .update({ status: u.status, board_position: u.board_position, completed })
+      .eq("id", u.id)
+  }
+
+  revalidatePath(`/projects/${task.project_id}`)
+  revalidatePath("/")
 }

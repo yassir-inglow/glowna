@@ -88,6 +88,34 @@
   --color-warning-900: #7A2E0E;
   --color-warning-950: #4E1D09;
 
+  /* Success */
+  --color-success-25: #F6FEF9;
+  --color-success-50: #ECFDF3;
+  --color-success-100: #DCFAE6;
+  --color-success-200: #ABEFC6;
+  --color-success-300: #75E0A7;
+  --color-success-400: #47CD89;
+  --color-success-500: #17B26A;
+  --color-success-600: #079455;
+  --color-success-700: #067647;
+  --color-success-800: #085D3A;
+  --color-success-900: #074D31;
+  --color-success-950: #053321;
+
+  /* Purple */
+  --color-purple-25: #FAFAFF;
+  --color-purple-50: #F4F3FF;
+  --color-purple-100: #EBE9FE;
+  --color-purple-200: #D9D6FE;
+  --color-purple-300: #BDB4FE;
+  --color-purple-400: #9B8AFB;
+  --color-purple-500: #7A5AF8;
+  --color-purple-600: #6938EF;
+  --color-purple-700: #5925DC;
+  --color-purple-800: #4A1FB8;
+  --color-purple-900: #3E1C96;
+  --color-purple-950: #27115F;
+
   /* Typography — Font family (resolved via next/font CSS variable) */
   --font-family-display: var(--font-inter), 'Inter', sans-serif;
   --font-family-body: var(--font-inter), 'Inter', sans-serif;
