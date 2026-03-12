@@ -59,13 +59,13 @@ export function PriorityPicker({
     <div
       className={cn("w-[200px]", className)}
     >
-      <div className="flex flex-col py-1">
+      <div className="flex flex-col gap-0.5 p-2">
         {PRIORITY_OPTIONS.map((option) => (
           <button
             key={option.value}
             type="button"
             onClick={() => handleSelect(option.value)}
-            className="flex w-full items-center justify-between px-3 py-2 transition-colors hover:bg-alpha-900 cursor-pointer"
+            className="flex w-full items-center justify-between rounded-full px-3 py-2 transition-colors hover:bg-alpha-900 cursor-pointer"
           >
             <div className="flex items-center gap-2">
               <HugeiconsIcon

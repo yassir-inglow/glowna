@@ -229,6 +229,7 @@ export type Database = {
       tasks: {
         Row: {
           add_text: string | null
+          board_position: number
           comment_count: number
           completed: boolean
           created_at: string
@@ -239,6 +240,7 @@ export type Database = {
           position: number
           priority: string
           project_id: string
+          status: string
           sub_task_current: number
           sub_task_total: number
           title: string
@@ -247,6 +249,7 @@ export type Database = {
         }
         Insert: {
           add_text?: string | null
+          board_position?: number
           comment_count?: number
           completed?: boolean
           created_at?: string
@@ -257,6 +260,7 @@ export type Database = {
           position?: number
           priority?: string
           project_id: string
+          status?: string
           sub_task_current?: number
           sub_task_total?: number
           title: string
@@ -265,6 +269,7 @@ export type Database = {
         }
         Update: {
           add_text?: string | null
+          board_position?: number
           comment_count?: number
           completed?: boolean
           created_at?: string
@@ -275,6 +280,7 @@ export type Database = {
           position?: number
           priority?: string
           project_id?: string
+          status?: string
           sub_task_current?: number
           sub_task_total?: number
           title?: string
