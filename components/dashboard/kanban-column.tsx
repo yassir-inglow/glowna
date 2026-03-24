@@ -52,8 +52,6 @@ type KanbanColumnProps = {
   members: ProjectMember[]
   /** Disable layout animation for the card that just dropped. */
   suppressLayoutForId?: string | null
-  /** Hide the card briefly after drop to avoid double-visibility with overlay. */
-  hideWhileDropId?: string | null
   onTaskSelect?: (taskId: string) => void
   selectedTaskId?: string | null
   onTaskCompletedChange?: (taskId: string, completed: boolean) => void
@@ -64,9 +62,14 @@ type KanbanColumnProps = {
 }
 
 /** Blue horizontal line that indicates "the card will land here". */
-function DropLine() {
+function DropLine({ className }: { className?: string }) {
   return (
-    <div className="flex items-center gap-1 py-0.5">
+    <div
+      className={cn(
+        "pointer-events-none absolute left-0 right-0 flex items-center gap-1",
+        className,
+      )}
+    >
       <div className="h-2 w-2 shrink-0 rounded-full bg-brand-500" />
       <div className="h-0.5 flex-1 rounded-full bg-brand-500" />
     </div>
@@ -78,7 +81,6 @@ const KanbanColumn = React.memo(function KanbanColumn({
   tasks,
   members,
   suppressLayoutForId,
-  hideWhileDropId,
   onTaskSelect,
   selectedTaskId,
   onTaskCompletedChange,
@@ -126,29 +128,29 @@ const KanbanColumn = React.memo(function KanbanColumn({
       <div
         ref={setNodeRef}
         className={cn(
-          "flex min-h-[120px] flex-1 flex-col gap-2 rounded-t-[24px] rounded-b-none p-2 transition-colors",
+          "relative flex min-h-[120px] flex-1 flex-col gap-2 rounded-t-[24px] rounded-b-none p-2 transition-colors",
           isOver ? "bg-brand-50/50" : config.bodyBg,
         )}
       >
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
           {tasks.map((task) => (
-            <React.Fragment key={task.id}>
-              {dropIndicatorBeforeId === task.id && <DropLine />}
+            <div key={task.id} className="relative">
+              {dropIndicatorBeforeId === task.id && <DropLine className="-top-2" />}
               <KanbanCard
                 task={task}
                 members={members}
                 layoutEnabled={suppressLayoutForId !== task.id}
-                hideWhileDrop={hideWhileDropId === task.id}
                 selected={selectedTaskId === task.id}
                 onSelect={() => onTaskSelect?.(task.id)}
                 onCompletedChange={(completed) => onTaskCompletedChange?.(task.id, completed)}
                 onPriorityChange={(priority) => onTaskPriorityChange?.(task.id, priority)}
               />
-            </React.Fragment>
+            </div>
           ))}
-          {/* Indicator at the end of the column (beforeId === null) */}
-          {dropIndicatorBeforeId === null && <DropLine />}
         </SortableContext>
+
+        {/* Indicator at the end of the column (beforeId === null) */}
+        {dropIndicatorBeforeId === null && <DropLine className="bottom-2" />}
 
         {tasks.length === 0 && dropIndicatorBeforeId === undefined && (
           <div className="flex flex-1 items-center justify-center py-8">

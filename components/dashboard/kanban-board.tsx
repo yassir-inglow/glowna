@@ -26,7 +26,7 @@ import type { Priority } from "@/components/dashboard/priority-picker"
 import type { TaskWithProject, ProjectWithMembers } from "@/lib/data"
 
 const COLUMN_ORDER: TaskStatus[] = ["todo", "in_progress", "done"]
-const DROP_ANIMATION_MS = 280
+const BOARD_POSITION_GAP = 1000
 
 type Columns = Record<TaskStatus, TaskWithProject[]>
 
@@ -47,11 +47,29 @@ function findContainerIn(cols: Columns, taskId: string): TaskStatus | null {
   return null
 }
 
-function resolveOverColumn(cols: Columns, overId: string): TaskStatus | null {
-  return (
-    findContainerIn(cols, overId) ??
-    (COLUMN_ORDER.includes(overId as TaskStatus) ? (overId as TaskStatus) : null)
-  )
+function computeInsertedPosition(
+  prevPos: number | null,
+  nextPos: number | null,
+): { pos: number; needsReindex: boolean } {
+  if (prevPos == null && nextPos == null) {
+    return { pos: BOARD_POSITION_GAP, needsReindex: false }
+  }
+  if (prevPos == null) {
+    // Insert before the first card
+    return { pos: nextPos! - BOARD_POSITION_GAP, needsReindex: false }
+  }
+  if (nextPos == null) {
+    // Insert at end
+    return { pos: prevPos + BOARD_POSITION_GAP, needsReindex: false }
+  }
+
+  const gap = nextPos - prevPos
+  if (gap <= 1) return { pos: prevPos, needsReindex: true }
+
+  const pos = Math.floor(prevPos + gap / 2)
+  if (pos === prevPos || pos === nextPos) return { pos, needsReindex: true }
+
+  return { pos, needsReindex: false }
 }
 
 /** Compute indicator position. Returns null when the drag would be a no-op. */
@@ -170,7 +188,6 @@ export function KanbanBoard({
 
   // Ref mirrors dropIndicator for synchronous reads in handleDragEnd.
   const indicatorRef = React.useRef<DropIndicator | null>(null)
-  const clearDropTimeoutRef = React.useRef<number | null>(null)
 
   // Sync from parent (real-time updates).
   React.useEffect(() => {
@@ -182,21 +199,11 @@ export function KanbanBoard({
 
   React.useEffect(() => {
     if (!justDroppedId) return
-    if (clearDropTimeoutRef.current) {
-      window.clearTimeout(clearDropTimeoutRef.current)
-      clearDropTimeoutRef.current = null
-    }
-    clearDropTimeoutRef.current = window.setTimeout(() => {
-      clearDropTimeoutRef.current = null
+    const raf = window.requestAnimationFrame(() => {
       setJustDroppedId(null)
-    }, DROP_ANIMATION_MS)
-    return () => {
-      if (clearDropTimeoutRef.current) {
-        window.clearTimeout(clearDropTimeoutRef.current)
-        clearDropTimeoutRef.current = null
-      }
-    }
-  }, [justDroppedId, localColumns])
+    })
+    return () => window.cancelAnimationFrame(raf)
+  }, [justDroppedId])
 
   // ─── Sensors ────────────────────────────────────────────────────────────
   const sensors = useSensors(
@@ -299,38 +306,57 @@ export function KanbanBoard({
     const card = cols[sourceColumn].find((t) => t.id === draggedId)
     if (!card) return
 
-    const movedCard = { ...card, status: indicator.column as string }
-
     // Remove from source
     const filteredSource = cols[sourceColumn].filter((t) => t.id !== draggedId)
 
     // Build target list
-    let target: TaskWithProject[]
+    let targetBase: TaskWithProject[]
     if (sourceColumn === indicator.column) {
-      target = [...filteredSource] // same column after removal
+      targetBase = [...filteredSource] // same column after removal
     } else {
-      target = [...cols[indicator.column]]
+      targetBase = [...cols[indicator.column]]
     }
 
-    // Insert at the indicated position
+    let insertIndex = targetBase.length
     if (indicator.beforeId !== null) {
-      const idx = target.findIndex((t) => t.id === indicator.beforeId)
-      if (idx >= 0) {
-        target.splice(idx, 0, movedCard)
-      } else {
-        target.push(movedCard)
-      }
-    } else {
-      target.push(movedCard)
+      const idx = targetBase.findIndex((t) => t.id === indicator.beforeId)
+      insertIndex = idx >= 0 ? idx : targetBase.length
     }
+
+    const prev = insertIndex > 0 ? targetBase[insertIndex - 1] : null
+    const nextCard = insertIndex < targetBase.length ? targetBase[insertIndex] : null
+    const { pos: insertedPos, needsReindex } = computeInsertedPosition(
+      prev?.board_position ?? null,
+      nextCard?.board_position ?? null,
+    )
+
+    const movedCard: TaskWithProject = {
+      ...card,
+      status: indicator.column as string,
+      board_position: insertedPos,
+    }
+
+    const target: TaskWithProject[] = [...targetBase]
+    target.splice(insertIndex, 0, movedCard)
 
     // Assemble new columns
-    const next: Columns = { ...cols }
+    let next: Columns = { ...cols }
     if (sourceColumn === indicator.column) {
       next[sourceColumn] = target
     } else {
       next[sourceColumn] = filteredSource
       next[indicator.column] = target
+    }
+
+    // If positions are too dense to insert, reindex the target column (rare fallback).
+    if (needsReindex) {
+      next = {
+        ...next,
+        [indicator.column]: next[indicator.column].map((t, i) => ({
+          ...t,
+          board_position: (i + 1) * BOARD_POSITION_GAP,
+        })),
+      }
     }
 
     // Persist
@@ -341,17 +367,27 @@ export function KanbanBoard({
     const originalMap = new Map(tasks.map((t) => [t.id, t]))
     const updates: { id: string; status: string; board_position: number }[] = []
 
-    for (const [status, colTasks] of Object.entries(next) as [
-      TaskStatus,
-      TaskWithProject[],
-    ][]) {
-      colTasks.forEach((t, i) => {
-        const newPos = (i + 1) * 1000
+    if (needsReindex) {
+      for (const t of next[indicator.column]) {
         const orig = originalMap.get(t.id)
-        if (!orig || orig.board_position !== newPos || orig.status !== status) {
-          updates.push({ id: t.id, status, board_position: newPos })
+        const status = indicator.column
+        if (!orig || orig.board_position !== t.board_position || orig.status !== status) {
+          updates.push({ id: t.id, status, board_position: t.board_position })
         }
-      })
+      }
+    } else {
+      const orig = originalMap.get(draggedId)
+      if (
+        !orig ||
+        orig.status !== indicator.column ||
+        orig.board_position !== movedCard.board_position
+      ) {
+        updates.push({
+          id: draggedId,
+          status: indicator.column,
+          board_position: movedCard.board_position,
+        })
+      }
     }
 
     if (updates.length > 0) {
@@ -399,7 +435,6 @@ export function KanbanBoard({
               tasks={localColumns[status]}
               members={project.members}
               suppressLayoutForId={justDroppedId}
-              hideWhileDropId={justDroppedId}
               onTaskSelect={onTaskSelect}
               selectedTaskId={selectedTaskId}
               onTaskCompletedChange={(taskId, completed) => onTaskToggle?.(taskId, completed)}
@@ -413,10 +448,7 @@ export function KanbanBoard({
       </LayoutGroup>
 
       <DragOverlay
-        dropAnimation={{
-          duration: DROP_ANIMATION_MS,
-          easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
-        }}
+        dropAnimation={null}
       >
         {activeTask && (
           <KanbanCard

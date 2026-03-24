@@ -657,12 +657,21 @@ export async function reorderTasksInColumn(
 
   const task = await requireTaskAccess(supabase, user.id, updates[0].id)
 
-  for (const u of updates) {
-    const completed = u.status === "done"
-    await supabase
-      .from("tasks")
-      .update({ status: u.status, board_position: u.board_position, completed })
-      .eq("id", u.id)
+  const results = await Promise.all(
+    updates.map((u) =>
+      supabase
+        .from("tasks")
+        .update({
+          status: u.status,
+          board_position: u.board_position,
+          completed: u.status === "done",
+        })
+        .eq("id", u.id),
+    ),
+  )
+
+  for (const r of results) {
+    if (r.error) throw r.error
   }
 
   revalidatePath(`/projects/${task.project_id}`)

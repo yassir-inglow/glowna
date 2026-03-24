@@ -64,8 +64,6 @@ type KanbanCardProps = {
   onPriorityChange?: (priority: Priority) => void
   /** Disable layout animation for this card. */
   layoutEnabled?: boolean
-  /** Hide the card briefly after drop to avoid double-visibility with overlay. */
-  hideWhileDrop?: boolean
   isDragOverlay?: boolean
 }
 
@@ -76,7 +74,6 @@ const KanbanCard = React.memo(function KanbanCard({
   selected,
   onSelect,
   layoutEnabled = true,
-  hideWhileDrop = false,
   isDragOverlay,
 }: KanbanCardProps) {
   const {
@@ -92,8 +89,7 @@ const KanbanCard = React.memo(function KanbanCard({
   // Card stays in place — no transform, no transition.
   // Keep the original card visible at 50% while dragging.
   const style: React.CSSProperties = {
-    opacity: hideWhileDrop ? 0 : isDragging ? 0.5 : 1,
-    pointerEvents: hideWhileDrop ? "none" : undefined,
+    opacity: isDragging ? 0.5 : 1,
   }
 
   const priorityConfig = getPriorityConfig(task.priority)
@@ -101,7 +97,7 @@ const KanbanCard = React.memo(function KanbanCard({
   const dueDate = formatDate(task.due_date)
   const createdAt = formatCreatedAt(task.created_at)
   const hasLabels = !!priorityConfig || !!dueDate || task.completed
-  const enableLayout = layoutEnabled && !isDragOverlay && !hideWhileDrop
+  const enableLayout = layoutEnabled && !isDragOverlay
 
   return (
     <motion.div
@@ -120,7 +116,6 @@ const KanbanCard = React.memo(function KanbanCard({
         "flex cursor-grab flex-col gap-2.5 rounded-2xl border bg-white p-3 shadow-xs transition-shadow transition-opacity",
         "hover:shadow-sm active:cursor-grabbing",
         selected ? "border-brand-500 ring-1 ring-brand-500/20" : "border-gray-cool-100",
-        isDragOverlay && "shadow-lg",
       )}
     >
       {/* ── Title ──────────────────────────────────────────────────────────── */}
