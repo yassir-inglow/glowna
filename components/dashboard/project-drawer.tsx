@@ -336,7 +336,7 @@ export function ProjectDrawer({ projects, projectId, onClose }: ProjectDrawerPro
         })
       })
       markMutation("tasks")
-      reorderTasksInColumn(updates)
+      return reorderTasksInColumn(updates)
     },
     [],
   )
@@ -396,6 +396,7 @@ export function ProjectDrawer({ projects, projectId, onClose }: ProjectDrawerPro
                   onTaskPriorityChange={handleTaskPriorityChange}
                   onTaskStatusChange={handleTaskStatusChange}
                   onTaskReorder={handleTaskReorder}
+                  onTaskDateChange={handleTaskDateChange}
                 />
               ) : project ? (
                 <DrawerSkeleton project={project} />

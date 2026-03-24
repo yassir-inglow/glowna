@@ -6,7 +6,6 @@ import {
   DragOverlay,
   pointerWithin,
   rectIntersection,
-  defaultDropAnimationSideEffects,
   KeyboardSensor,
   PointerSensor,
   TouchSensor,
@@ -27,6 +26,7 @@ import type { Priority } from "@/components/dashboard/priority-picker"
 import type { TaskWithProject, ProjectWithMembers } from "@/lib/data"
 
 const COLUMN_ORDER: TaskStatus[] = ["todo", "in_progress", "done"]
+const DROP_ANIMATION_MS = 280
 
 type Columns = Record<TaskStatus, TaskWithProject[]>
 
@@ -132,7 +132,7 @@ type KanbanBoardProps = {
   onTaskStatusChange?: (taskId: string, status: string) => void
   onTaskReorder?: (
     updates: { id: string; status: string; board_position: number }[],
-  ) => void
+  ) => void | Promise<void>
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -172,7 +172,7 @@ export function KanbanBoard({
   const indicatorRef = React.useRef<DropIndicator | null>(null)
   const clearDropTimeoutRef = React.useRef<number | null>(null)
 
-  // Sync from parent (real-time updates)
+  // Sync from parent (real-time updates).
   React.useEffect(() => {
     if (!activeId) {
       colsRef.current = columns
@@ -189,7 +189,7 @@ export function KanbanBoard({
     clearDropTimeoutRef.current = window.setTimeout(() => {
       clearDropTimeoutRef.current = null
       setJustDroppedId(null)
-    }, 320)
+    }, DROP_ANIMATION_MS)
     return () => {
       if (clearDropTimeoutRef.current) {
         window.clearTimeout(clearDropTimeoutRef.current)
@@ -414,11 +414,8 @@ export function KanbanBoard({
 
       <DragOverlay
         dropAnimation={{
-          duration: 280,
+          duration: DROP_ANIMATION_MS,
           easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
-          sideEffects: defaultDropAnimationSideEffects({
-            styles: { active: { opacity: "0.2" } },
-          }),
         }}
       >
         {activeTask && (
