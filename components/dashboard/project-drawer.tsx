@@ -1,22 +1,18 @@
 "use client"
 
 import * as React from "react"
-import { ArrowDown01Icon } from "@hugeicons/core-free-icons"
 
 import { AnimatePresence, motion } from "motion/react"
 import { Drawer, DrawerContent } from "@/components/ui/drawer"
 import { ProjectDetail } from "@/components/dashboard/project-detail"
 import { TaskDetailPanel } from "@/components/dashboard/task-detail-panel"
 import { TaskRowSkeleton } from "@/components/dashboard/task-row"
-import { Button } from "@/components/ui/button"
-import { ButtonSkeleton } from "@/components/ui/button"
-import { Avatar, AvatarAvvvatars, AvatarGroup, AvatarImage } from "@/components/ui/avatar"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { SearchButtonSkeleton } from "@/components/dashboard/search-button"
+import { AvatarGroupSkeleton } from "@/components/ui/avatar"
+import { Skeleton } from "@/components/ui/skeleton"
 import { createClient } from "@/lib/supabase/client"
 import { hasRecentLocalMutation, markMutation } from "@/hooks/mutation-tracker"
 import { onPeerChange } from "@/hooks/use-broadcast-sync"
-import { toggleTaskCompleted } from "@/app/actions"
+import { toggleTaskCompleted, reorderTasksInColumn } from "@/app/actions"
 import type { ProjectWithMembers, TaskWithProject } from "@/lib/data"
 
 type ProjectDrawerProps = {
@@ -317,6 +313,34 @@ export function ProjectDrawer({ projects, projectId, onClose }: ProjectDrawerPro
     )
   }, [])
 
+  const handleTaskStatusChange = React.useCallback((taskId: string, status: string) => {
+    setTasks((prev) =>
+      prev?.map((t) =>
+        t.id === taskId
+          ? { ...t, status, completed: status === "done" }
+          : t,
+      ) ?? null,
+    )
+  }, [])
+
+  const handleTaskReorder = React.useCallback(
+    (updates: { id: string; status: string; board_position: number }[]) => {
+      setTasks((prev) => {
+        if (!prev) return null
+        const updateMap = new Map(updates.map((u) => [u.id, u]))
+        return prev.map((t) => {
+          const u = updateMap.get(t.id)
+          return u
+            ? { ...t, status: u.status, board_position: u.board_position, completed: u.status === "done" }
+            : t
+        })
+      })
+      markMutation("tasks")
+      return reorderTasksInColumn(updates)
+    },
+    [],
+  )
+
   const handleTaskCreated = React.useCallback(async () => {
     if (!projectId) return
     const result = await fetchProjectTasks(projectId)
@@ -354,11 +378,11 @@ export function ProjectDrawer({ projects, projectId, onClose }: ProjectDrawerPro
         <div ref={containerRef} className="relative flex-1 overflow-hidden">
           <motion.div
             className="h-full w-full overflow-y-auto scrollbar-hidden"
-            animate={{ x: selectedTaskId && hasRoom ? -100 : 0 }}
+            animate={{ x: 0 }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
             onClick={() => { if (selectedTaskId) setSelectedTaskId(null) }}
           >
-            <div className="mx-auto w-full max-w-[1100px] p-6">
+            <div className="h-full w-full py-6 px-10">
               {project && tasks !== null && !loading ? (
                 <ProjectDetail
                   project={project}
@@ -370,6 +394,9 @@ export function ProjectDrawer({ projects, projectId, onClose }: ProjectDrawerPro
                   onTaskSelect={setSelectedTaskId}
                   selectedTaskId={selectedTaskId}
                   onTaskPriorityChange={handleTaskPriorityChange}
+                  onTaskStatusChange={handleTaskStatusChange}
+                  onTaskReorder={handleTaskReorder}
+                  onTaskDateChange={handleTaskDateChange}
                 />
               ) : project ? (
                 <DrawerSkeleton project={project} />
@@ -389,6 +416,7 @@ export function ProjectDrawer({ projects, projectId, onClose }: ProjectDrawerPro
                 onDateChange={handleTaskDateChange}
                 onPriorityChange={handleTaskPriorityChange}
                 onAssigneeChange={handleTaskAssigneeChange}
+                onStatusChange={handleTaskStatusChange}
               />
             )}
           </AnimatePresence>
@@ -401,58 +429,27 @@ export function ProjectDrawer({ projects, projectId, onClose }: ProjectDrawerPro
 function DrawerSkeleton({ project }: { project: ProjectWithMembers }) {
   return (
     <div className="space-y-6">
-      {/* Title row — mirrors ProjectDetail header exactly */}
+      {/* Header: title + avatars + share */}
       <div className="flex items-center justify-between">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          trailingIcon={ArrowDown01Icon}
-          className="text-display-xs font-medium text-gray-cool-800 hover:bg-transparent pointer-events-none"
-        >
-          {project.title}
-        </Button>
+        <Skeleton className="h-9 w-48 rounded-lg" />
         <div className="flex items-center gap-3">
-          {project.members.length > 0 && (
-            <AvatarGroup>
-              {project.members.map((member) => (
-                <Avatar key={member.id} size="xs" className="ring-[1.5px] ring-white">
-                  {member.avatar_url ? (
-                    <AvatarImage src={member.avatar_url} alt="" />
-                  ) : (
-                    <AvatarAvvvatars value={member.full_name ?? member.email ?? member.id} />
-                  )}
-                </Avatar>
-              ))}
-            </AvatarGroup>
-          )}
-          <ButtonSkeleton size="xxs" width="w-[72px]" />
+          <AvatarGroupSkeleton count={2} size="xs" />
+          <Skeleton className="h-[26px] w-[72px] rounded-full" />
         </div>
       </div>
 
-      {/* Tabs row — mirrors ProjectDetail tabs + action buttons */}
+      {/* Toolbar: tabs + search button */}
       <div className="flex items-center justify-between gap-4">
-        <Tabs defaultValue="overview">
-          <TabsList className="h-auto gap-0 rounded-full bg-transparent p-0">
-            {["Overview", "List", "Board", "Timeline"].map((tab) => (
-              <TabsTrigger
-                key={tab.toLowerCase()}
-                value={tab.toLowerCase()}
-                className="pointer-events-none rounded-full px-3 py-1.5 text-text-sm font-medium text-gray-cool-400 transition-colors data-[state=active]:bg-alpha-900 data-[state=active]:text-gray-cool-700"
-              >
-                {tab}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-
-        <div className="flex items-center gap-2">
-          <SearchButtonSkeleton />
-          <ButtonSkeleton size="xs" width="w-[108px]" />
+        <div className="flex items-center gap-1">
+          <Skeleton className="h-8 w-20 rounded-full" />
+          <Skeleton className="h-8 w-12 rounded-full" />
+          <Skeleton className="h-8 w-14 rounded-full" />
+          <Skeleton className="h-8 w-18 rounded-full" />
         </div>
+        <Skeleton className="h-9 w-9 rounded-full" />
       </div>
 
-      {/* Task list skeleton */}
+      {/* Task list */}
       <div className="overflow-hidden">
         {Array.from({ length: 5 }).map((_, i) => (
           <TaskRowSkeleton key={i} />

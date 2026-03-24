@@ -196,7 +196,7 @@ export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
             className="flex-1 min-h-0 overflow-y-auto scrollbar-hidden rounded-xl"
           >
             <NewTaskRow
-              projects={projects.map((p) => ({ id: p.id, title: p.title }))}
+              projects={projects.map((p) => ({ id: p.id, title: p.title, members: p.members }))}
               onCreated={() => router.refresh()}
             />
             <AnimatePresence initial={false}>

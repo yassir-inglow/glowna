@@ -96,7 +96,7 @@ export function AssigneePicker({
       </div>
 
       {/* Assignee list */}
-      <div className="flex flex-col max-h-[200px] overflow-y-auto scrollbar-hidden">
+      <div className="flex flex-col gap-0.5 p-2 max-h-[200px] overflow-y-auto scrollbar-hidden">
         {filtered.length === 0 ? (
           <p className="px-3 py-4 text-center text-text-xs font-medium text-gray-cool-400">
             No members found
@@ -111,7 +111,7 @@ export function AssigneePicker({
                 key={member.id}
                 type="button"
                 onClick={() => handleToggle(member.id)}
-                className="flex w-full items-center justify-between px-3 py-2 transition-colors hover:bg-alpha-900 cursor-pointer"
+                className="flex w-full items-center justify-between rounded-full pl-2 pr-3 py-2 transition-colors hover:bg-alpha-900 cursor-pointer"
               >
                 <div className="flex flex-1 items-center gap-2 min-w-0">
                   <Avatar size="xs" className="shrink-0">

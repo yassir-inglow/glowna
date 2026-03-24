@@ -13,9 +13,13 @@ import { TaskRow } from "@/components/dashboard/task-row"
 import { TaskContextMenu } from "@/components/dashboard/task-context-menu"
 import { NewTaskRow } from "@/components/dashboard/new-task-row"
 import { SharePopover } from "@/components/dashboard/invite-popover"
+import { KanbanBoard } from "@/components/dashboard/kanban-board"
+import { TimelineView } from "@/components/dashboard/timeline-view"
 import { useRealtimeRefresh } from "@/hooks/use-realtime-refresh"
 import { useProjectPresence } from "@/hooks/use-project-presence"
 import { useUser } from "@/components/dashboard/user-provider"
+import { reorderTasksInColumn as reorderAction } from "@/app/actions"
+import { markMutation } from "@/hooks/mutation-tracker"
 import type { ProjectMember, ProjectWithMembers, TaskWithProject } from "@/lib/data"
 import type { Priority } from "@/components/dashboard/priority-picker"
 
@@ -25,6 +29,8 @@ function getInitials(name: string | null | undefined): string {
   if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
   return parts[0].slice(0, 2).toUpperCase()
 }
+
+const SAVE_DELAY_MS = 6000
 
 type ProjectDetailProps = {
   project: ProjectWithMembers
@@ -42,14 +48,209 @@ type ProjectDetailProps = {
   selectedTaskId?: string | null
   /** Called when a task's priority changes (for optimistic sync in the drawer). */
   onTaskPriorityChange?: (taskId: string, priority: Priority) => void
+  /** Called when a task's status changes (board drag-and-drop). */
+  onTaskStatusChange?: (taskId: string, status: string) => void
+  /** Called when tasks are reordered on the board. */
+  onTaskReorder?: (updates: { id: string; status: string; board_position: number }[]) => void | Promise<void>
+  /** Called when a task's dates change (timeline drag-to-resize). */
+  onTaskDateChange?: (taskId: string, dueDate: string | null, dueDateEnd: string | null) => void
 }
 
-export function ProjectDetail({ project, tasks, onDeleteTask, onTaskToggle, onTaskCreated, enableRealtimeRefresh = true, onTaskSelect, selectedTaskId, onTaskPriorityChange }: ProjectDetailProps) {
+export function ProjectDetail({ project, tasks, onDeleteTask, onTaskToggle, onTaskCreated, enableRealtimeRefresh = true, onTaskSelect, selectedTaskId, onTaskPriorityChange, onTaskStatusChange, onTaskReorder, onTaskDateChange }: ProjectDetailProps) {
   const [activeView, setActiveView] = React.useState("overview")
-  const [optimisticTasks, removeOptimisticTask] = React.useOptimistic(
-    tasks,
-    (state, deletedId: string) => state.filter((t) => t.id !== deletedId),
+  const [pendingPatches, setPendingPatches] = React.useState<
+    Map<string, Partial<Pick<TaskWithProject, "status" | "board_position" | "priority" | "completed">>>
+  >(() => new Map())
+  const [pendingDeletes, setPendingDeletes] = React.useState<Set<string>>(() => new Set())
+  const [saveStatus, setSaveStatus] = React.useState<"idle" | "saving" | "delayed" | "error">("idle")
+  const [lastFailedUpdates, setLastFailedUpdates] = React.useState<
+    { updates: { id: string; status: string; board_position: number }[] } | null
+  >(null)
+  const saveTimerRef = React.useRef<number | null>(null)
+
+  const tasksById = React.useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks])
+
+  const displayTasks = React.useMemo(() => {
+    if (pendingPatches.size === 0 && pendingDeletes.size === 0) return tasks
+    return tasks
+      .filter((t) => !pendingDeletes.has(t.id))
+      .map((t) => {
+        const patch = pendingPatches.get(t.id)
+        return patch ? { ...t, ...patch } : t
+      })
+  }, [tasks, pendingDeletes, pendingPatches])
+
+  const clearSaveTimer = React.useCallback(() => {
+    if (saveTimerRef.current) {
+      window.clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = null
+    }
+  }, [])
+
+  const beginSave = React.useCallback(() => {
+    setSaveStatus("saving")
+    setLastFailedUpdates(null)
+    clearSaveTimer()
+    saveTimerRef.current = window.setTimeout(() => {
+      setSaveStatus((prev) => (prev === "saving" ? "delayed" : prev))
+    }, SAVE_DELAY_MS)
+  }, [clearSaveTimer])
+
+  const finishSave = React.useCallback(() => {
+    clearSaveTimer()
+    setSaveStatus("idle")
+    setLastFailedUpdates(null)
+  }, [clearSaveTimer])
+
+  React.useEffect(() => {
+    if (pendingPatches.size === 0 && pendingDeletes.size === 0) {
+      if (saveStatus !== "idle") finishSave()
+      return
+    }
+
+    let nextPatches = pendingPatches
+    let nextDeletes = pendingDeletes
+    let changed = false
+
+    for (const id of pendingDeletes) {
+      if (!tasksById.has(id)) {
+        if (nextDeletes === pendingDeletes) nextDeletes = new Set(pendingDeletes)
+        nextDeletes.delete(id)
+        changed = true
+      }
+    }
+
+    for (const [id, patch] of pendingPatches) {
+      const task = tasksById.get(id)
+      if (!task) {
+        if (nextPatches === pendingPatches) nextPatches = new Map(pendingPatches)
+        nextPatches.delete(id)
+        changed = true
+        continue
+      }
+
+      let matches = true
+      if (patch.status !== undefined && task.status !== patch.status) matches = false
+      if (patch.board_position !== undefined && task.board_position !== patch.board_position) matches = false
+      if (patch.priority !== undefined && task.priority !== patch.priority) matches = false
+      if (patch.completed !== undefined && task.completed !== patch.completed) matches = false
+
+      if (matches) {
+        if (nextPatches === pendingPatches) nextPatches = new Map(pendingPatches)
+        nextPatches.delete(id)
+        changed = true
+      }
+    }
+
+    if (changed) {
+      setPendingPatches(nextPatches)
+      setPendingDeletes(nextDeletes)
+    }
+
+    const finalPatches = changed ? nextPatches : pendingPatches
+    const finalDeletes = changed ? nextDeletes : pendingDeletes
+    if (finalPatches.size === 0 && finalDeletes.size === 0) {
+      finishSave()
+    }
+  }, [pendingDeletes, pendingPatches, saveStatus, tasksById, finishSave])
+
+  React.useEffect(() => () => clearSaveTimer(), [clearSaveTimer])
+
+  const queuePatch = React.useCallback(
+    (taskId: string, patch: Partial<Pick<TaskWithProject, "status" | "board_position" | "priority" | "completed">>) => {
+      setPendingPatches((prev) => {
+        const next = new Map(prev)
+        const existing = next.get(taskId) ?? {}
+        next.set(taskId, { ...existing, ...patch })
+        return next
+      })
+    },
+    [],
   )
+
+  const queueDelete = React.useCallback((taskId: string) => {
+    setPendingDeletes((prev) => {
+      if (prev.has(taskId)) return prev
+      const next = new Set(prev)
+      next.add(taskId)
+      return next
+    })
+  }, [])
+
+  const runReorderSave = React.useCallback(
+    (updates: { id: string; status: string; board_position: number }[]) => {
+      if (onTaskReorder) return onTaskReorder(updates)
+      markMutation("tasks")
+      return reorderAction(updates)
+    },
+    [onTaskReorder],
+  )
+
+  const handleOptimisticDelete = React.useCallback(
+    (taskId: string) => {
+      React.startTransition(() => {
+        queueDelete(taskId)
+      })
+      beginSave()
+    },
+    [queueDelete, beginSave],
+  )
+
+  const handleOptimisticStatusChange = React.useCallback(
+    (taskId: string, status: string) => {
+      React.startTransition(() => {
+        queuePatch(taskId, { status, completed: status === "done" })
+      })
+      beginSave()
+      onTaskStatusChange?.(taskId, status)
+    },
+    [queuePatch, beginSave, onTaskStatusChange],
+  )
+
+  const handleOptimisticPriorityChange = React.useCallback(
+    (taskId: string, priority: Priority) => {
+      React.startTransition(() => {
+        queuePatch(taskId, { priority })
+      })
+      beginSave()
+      onTaskPriorityChange?.(taskId, priority)
+    },
+    [queuePatch, beginSave, onTaskPriorityChange],
+  )
+
+  const handleOptimisticReorder = React.useCallback(
+    (updates: { id: string; status: string; board_position: number }[]) => {
+      React.startTransition(() => {
+        setPendingPatches((prev) => {
+          const next = new Map(prev)
+          for (const u of updates) {
+            const existing = next.get(u.id) ?? {}
+            next.set(u.id, {
+              ...existing,
+              status: u.status,
+              board_position: u.board_position,
+              completed: u.status === "done",
+            })
+          }
+          return next
+        })
+      })
+      beginSave()
+      Promise.resolve(runReorderSave(updates)).catch(() => {
+        setSaveStatus("error")
+        setLastFailedUpdates({ updates })
+      })
+    },
+    [beginSave, runReorderSave],
+  )
+
+  const handleRetry = React.useCallback(() => {
+    if (!lastFailedUpdates) return
+    beginSave()
+    Promise.resolve(runReorderSave(lastFailedUpdates.updates)).catch(() => {
+      setSaveStatus("error")
+    })
+  }, [beginSave, lastFailedUpdates, runReorderSave])
 
   const user = useUser()
   const activeUserIds = useProjectPresence(project.id, user.id)
@@ -77,7 +278,7 @@ export function ProjectDetail({ project, tasks, onDeleteTask, onTaskToggle, onTa
   useRealtimeRefresh({ table: "project_members", filter: `project_id=eq.${project.id}`, enabled: enableRealtimeRefresh })
 
   return (
-    <div className="space-y-6">
+    <div className="h-full space-y-6">
       <div className="flex items-center justify-between">
         <Button
           type="button"
@@ -147,42 +348,85 @@ export function ProjectDetail({ project, tasks, onDeleteTask, onTaskToggle, onTa
         <SearchButton />
       </div>
 
-      <div className="overflow-hidden">
-        <NewTaskRow
-          projectId={project.id}
-          members={project.members}
-          onCreated={onTaskCreated}
+      {saveStatus !== "idle" && (
+        <div className="flex items-center justify-end gap-2 text-text-xs text-gray-cool-500">
+          <span>
+            {saveStatus === "saving" && "Saving..."}
+            {saveStatus === "delayed" && "Still saving..."}
+            {saveStatus === "error" && "Couldn't save."}
+          </span>
+          {(saveStatus === "delayed" || saveStatus === "error") && lastFailedUpdates && (
+            <button
+              type="button"
+              onClick={handleRetry}
+              className="rounded-full px-2 py-0.5 text-text-xs font-medium text-brand-600 hover:bg-brand-50"
+            >
+              Retry
+            </button>
+          )}
+        </div>
+      )}
+
+      {activeView === "board" ? (
+        <KanbanBoard
+          tasks={displayTasks}
+          project={project}
+          onTaskToggle={onTaskToggle}
+          onTaskCreated={onTaskCreated}
+          onDeleteTask={(taskId) => { handleOptimisticDelete(taskId); onDeleteTask?.(taskId) }}
+          onTaskSelect={onTaskSelect}
+          selectedTaskId={selectedTaskId}
+          onTaskPriorityChange={handleOptimisticPriorityChange}
+          onTaskStatusChange={handleOptimisticStatusChange}
+          onTaskReorder={handleOptimisticReorder}
         />
-        {optimisticTasks.map((task) => (
-          <TaskContextMenu key={task.id} taskId={task.id} projectId={task.project_id} onDelete={() => { removeOptimisticTask(task.id); onDeleteTask?.(task.id) }}>
-            <TaskRow
-              id={task.id}
-              title={task.title}
-              completed={task.completed}
-              onCompletedChange={onTaskToggle ? (checked) => onTaskToggle(task.id, checked) : undefined}
-              showAddons={!!(task.sub_task_total || task.add_text || task.label_text || task.comment_count)}
-              subTaskCurrent={task.sub_task_current}
-              subTaskTotal={task.sub_task_total}
-              addText={task.add_text ?? undefined}
-              labelText={task.label_text ?? undefined}
-              commentCount={task.comment_count}
-              avatars={task.task_assignees.map((a) => ({
-                src: a.profiles?.avatar_url ?? undefined,
-                fallback: getInitials(a.profiles?.full_name ?? a.profiles?.email),
-                value: a.profiles?.full_name ?? a.profiles?.email ?? undefined,
-              }))}
-              members={project.members}
-              assignedIds={task.task_assignees.map((a) => a.profiles?.id).filter(Boolean) as string[]}
-              selected={selectedTaskId === task.id}
-              initialDueDate={task.due_date}
-              initialDueDateEnd={task.due_date_end}
-              priority={(task.priority ?? "none") as Priority}
-              onPriorityChange={onTaskPriorityChange ? (p) => onTaskPriorityChange(task.id, p) : undefined}
-              onSelect={onTaskSelect ? () => onTaskSelect(task.id) : undefined}
-            />
-          </TaskContextMenu>
-        ))}
-      </div>
+      ) : activeView === "timeline" ? (
+        <TimelineView
+          tasks={displayTasks}
+          projectId={project.id}
+          onTaskSelect={onTaskSelect}
+          selectedTaskId={selectedTaskId}
+          onTaskDateChange={onTaskDateChange}
+          onTaskCreated={onTaskCreated}
+        />
+      ) : (
+        <div className="overflow-hidden">
+          <NewTaskRow
+            projectId={project.id}
+            members={project.members}
+            onCreated={onTaskCreated}
+          />
+          {displayTasks.map((task) => (
+            <TaskContextMenu key={task.id} taskId={task.id} projectId={task.project_id} onDelete={() => { handleOptimisticDelete(task.id); onDeleteTask?.(task.id) }}>
+              <TaskRow
+                id={task.id}
+                title={task.title}
+                completed={task.completed}
+                onCompletedChange={onTaskToggle ? (checked) => onTaskToggle(task.id, checked) : undefined}
+                showAddons={!!(task.sub_task_total || task.add_text || task.label_text || task.comment_count)}
+                subTaskCurrent={task.sub_task_current}
+                subTaskTotal={task.sub_task_total}
+                addText={task.add_text ?? undefined}
+                labelText={task.label_text ?? undefined}
+                commentCount={task.comment_count}
+                avatars={task.task_assignees.map((a) => ({
+                  src: a.profiles?.avatar_url ?? undefined,
+                  fallback: getInitials(a.profiles?.full_name ?? a.profiles?.email),
+                  value: a.profiles?.full_name ?? a.profiles?.email ?? undefined,
+                }))}
+                members={project.members}
+                assignedIds={task.task_assignees.map((a) => a.profiles?.id).filter(Boolean) as string[]}
+                selected={selectedTaskId === task.id}
+                initialDueDate={task.due_date}
+                initialDueDateEnd={task.due_date_end}
+                priority={(task.priority ?? "none") as Priority}
+                onPriorityChange={handleOptimisticPriorityChange ? (p) => handleOptimisticPriorityChange(task.id, p) : undefined}
+                onSelect={onTaskSelect ? () => onTaskSelect(task.id) : undefined}
+              />
+            </TaskContextMenu>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

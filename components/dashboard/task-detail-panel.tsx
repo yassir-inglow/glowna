@@ -13,6 +13,9 @@ import { Calendar, RangeCalendar } from "@/components/ui/calendar"
 import { AssigneePopover } from "@/components/dashboard/assignee-popover"
 import { PriorityPopover, getPriorityConfig } from "@/components/dashboard/priority-picker"
 import type { Priority } from "@/components/dashboard/priority-picker"
+import { StatusPopover, getStatusConfig } from "@/components/dashboard/status-picker"
+import type { TaskStatusValue } from "@/components/dashboard/status-picker"
+import { ProgressRing } from "@/components/ui/progress-ring"
 import { updateTaskTitle, updateTaskDates, toggleTaskCompleted } from "@/app/actions"
 import { markMutation, hasRecentLocalMutation } from "@/hooks/mutation-tracker"
 import type { ProjectMember, TaskWithProject } from "@/lib/data"
@@ -27,9 +30,10 @@ type TaskDetailPanelProps = {
   onDateChange?: (taskId: string, dueDate: string | null, dueDateEnd: string | null) => void
   onPriorityChange?: (taskId: string, priority: Priority) => void
   onAssigneeChange?: (taskId: string, assignedIds: string[]) => void
+  onStatusChange?: (taskId: string, status: string) => void
 }
 
-export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleChange, onDateChange, onPriorityChange, onAssigneeChange }: TaskDetailPanelProps) {
+export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleChange, onDateChange, onPriorityChange, onAssigneeChange, onStatusChange }: TaskDetailPanelProps) {
   const [, startTransition] = useTransition()
 
   // ── Title ──────────────────────────────────────────────────────────────────
@@ -172,6 +176,7 @@ export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleC
       : "Date"
 
   const priorityConfig = getPriorityConfig(task.priority ?? "none")
+  const statusConfig = getStatusConfig(task.status ?? "todo")
 
   const assigneeLabel = displayAssignees.length === 0
     ? "Assignee"
@@ -287,6 +292,18 @@ export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleC
               {assigneeLabel}
             </Button>
           </AssigneePopover>
+
+          {/* Status */}
+          <StatusPopover
+            taskId={task.id}
+            status={(task.status ?? "todo") as TaskStatusValue}
+            onStatusChange={(s) => onStatusChange?.(task.id, s)}
+          >
+            <Button variant="secondary" size="xxs">
+              <ProgressRing value={statusConfig.ringValue} size={16} />
+              {statusConfig.label}
+            </Button>
+          </StatusPopover>
 
           {/* Priority */}
           <PriorityPopover
