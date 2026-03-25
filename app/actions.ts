@@ -28,7 +28,19 @@ async function requireProjectAccess(
     .eq("project_id", projectId)
     .eq("profile_id", userId)
 
-  if (!count || count === 0) throw new Error("Access denied")
+  if (count && count > 0) return
+
+  // Fallback for legacy projects where the owner membership row might be missing.
+  const { data: project, error } = await supabase
+    .from("projects")
+    .select("user_id")
+    .eq("id", projectId)
+    .maybeSingle()
+
+  if (error) throw error
+  if (project?.user_id === userId) return
+
+  throw new Error("Access denied")
 }
 
 async function requireTaskAccess(
@@ -676,4 +688,145 @@ export async function reorderTasksInColumn(
 
   revalidatePath(`/projects/${task.project_id}`)
   revalidatePath("/")
+}
+
+type ProjectBoardColumnInput = {
+  status: string
+  label: string
+  headerBg?: string
+  bodyBg?: string
+}
+
+function progressForStatus(status: string) {
+  if (status === "todo") return 0
+  if (status === "done") return 100
+  return 50
+}
+
+export async function ensureProjectBoardColumns(projectId: string) {
+  const { supabase, user } = await requireUser()
+  await requireProjectAccess(supabase, user.id, projectId)
+
+  const { count, error: countError } = await supabase
+    .from("project_board_columns")
+    .select("id", { count: "exact", head: true })
+    .eq("project_id", projectId)
+
+  if (countError) throw countError
+  if (count && count > 0) return
+
+  const defaults = [
+    { status: "todo", label: "To do", header_bg: "bg-gray-cool-25", body_bg: "bg-gray-cool-25", position: 0, progress: 0 },
+    { status: "in_progress", label: "In progress", header_bg: "bg-purple-25", body_bg: "bg-purple-25", position: 1, progress: 50 },
+    { status: "done", label: "Done", header_bg: "bg-success-25", body_bg: "bg-success-25", position: 2, progress: 100 },
+  ]
+
+  const { error } = await supabase
+    .from("project_board_columns")
+    .insert(defaults.map((d) => ({ ...d, project_id: projectId })))
+
+  if (error) throw error
+
+  revalidatePath(`/projects/${projectId}`)
+}
+
+export async function saveProjectBoardColumns(
+  projectId: string,
+  columns: ProjectBoardColumnInput[],
+  removedStatuses?: string[],
+) {
+  const { supabase, user } = await requireUser()
+  await requireProjectAccess(supabase, user.id, projectId)
+
+  const uniq = new Map<string, ProjectBoardColumnInput>()
+  for (const c of columns ?? []) {
+    const status = (c.status ?? "").trim()
+    if (!status) continue
+    uniq.set(status, {
+      status,
+      label: (c.label ?? "").trim() || status,
+      headerBg: c.headerBg,
+      bodyBg: c.bodyBg,
+    })
+  }
+
+  const todo = uniq.get("todo") ?? { status: "todo", label: "To do", headerBg: "bg-gray-cool-25", bodyBg: "bg-gray-cool-25" }
+  const done = uniq.get("done") ?? { status: "done", label: "Done", headerBg: "bg-success-25", bodyBg: "bg-success-25" }
+
+  // Enforce fixed first/last.
+  const middle = Array.from(uniq.values()).filter((c) => c.status !== "todo" && c.status !== "done")
+  const ordered: ProjectBoardColumnInput[] = [
+    { ...todo, label: "To do", headerBg: todo.headerBg ?? "bg-gray-cool-25", bodyBg: todo.bodyBg ?? todo.headerBg ?? "bg-gray-cool-25" },
+    ...middle,
+    { ...done, label: "Done", headerBg: done.headerBg ?? "bg-success-25", bodyBg: done.bodyBg ?? done.headerBg ?? "bg-success-25" },
+  ]
+
+  const desiredStatuses = new Set(ordered.map((c) => c.status))
+
+  const toDelete = (removedStatuses ?? [])
+    .map((s) => (s ?? "").trim())
+    .filter((s) => s && s !== "todo" && s !== "done" && !desiredStatuses.has(s))
+
+  if (toDelete.length > 0) {
+    // Move any tasks that were in deleted columns back to "To do".
+    const { error: taskError } = await supabase
+      .from("tasks")
+      .update({ status: "todo", completed: false })
+      .eq("project_id", projectId)
+      .in("status", toDelete)
+    if (taskError) throw new Error(taskError.message)
+  }
+
+  const upserts = ordered.map((c, index) => ({
+    project_id: projectId,
+    status: c.status,
+    label: c.status === "todo" ? "To do" : c.status === "done" ? "Done" : c.label,
+    position: index,
+    progress: progressForStatus(c.status),
+    header_bg: c.headerBg ?? "bg-gray-cool-25",
+    body_bg: c.bodyBg ?? c.headerBg ?? "bg-gray-cool-25",
+  }))
+
+  const { error } = await supabase
+    .from("project_board_columns")
+    .upsert(upserts, { onConflict: "project_id,status" })
+
+  if (error) {
+    const msg = error.message
+    if (
+      msg &&
+      msg.toLowerCase().includes("no unique or exclusion constraint") &&
+      msg.toLowerCase().includes("on conflict")
+    ) {
+      // Fallback for environments where the unique index isn't present yet.
+      const { error: delAllError } = await supabase
+        .from("project_board_columns")
+        .delete()
+        .eq("project_id", projectId)
+      if (delAllError) throw new Error(delAllError.message)
+
+      const { error: insertError } = await supabase
+        .from("project_board_columns")
+        .insert(upserts)
+      if (insertError) throw new Error(insertError.message)
+    } else {
+      if (msg && msg.toLowerCase().includes("relation") && msg.toLowerCase().includes("project_board_columns")) {
+        throw new Error(
+          `${msg}. Run the Supabase migration lib/supabase/migrations/012_project_board_columns.sql in your Supabase project.`,
+        )
+      }
+      throw new Error(msg || "Couldn't save board columns.")
+    }
+  }
+
+  if (toDelete.length > 0) {
+    const { error: delError } = await supabase
+      .from("project_board_columns")
+      .delete()
+      .eq("project_id", projectId)
+      .in("status", toDelete)
+    if (delError) throw new Error(delError.message)
+  }
+
+  revalidatePath(`/projects/${projectId}`)
 }

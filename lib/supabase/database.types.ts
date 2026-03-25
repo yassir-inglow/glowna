@@ -158,6 +158,53 @@ export type Database = {
           },
         ]
       }
+      project_board_columns: {
+        Row: {
+          body_bg: string
+          created_at: string
+          header_bg: string
+          id: string
+          label: string
+          position: number
+          progress: number
+          project_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          body_bg?: string
+          created_at?: string
+          header_bg?: string
+          id?: string
+          label: string
+          position: number
+          progress?: number
+          project_id: string
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          body_bg?: string
+          created_at?: string
+          header_bg?: string
+          id?: string
+          label?: string
+          position?: number
+          progress?: number
+          project_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_board_columns_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           compact_avatars: boolean

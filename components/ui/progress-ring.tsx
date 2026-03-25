@@ -37,6 +37,11 @@ type ProgressRingProps = {
   value: number
   /** Rendered pixel size. Defaults to 20 (matches Figma). */
   size?: number
+  /**
+   * Optional override for the ring/pie colour.
+   * When omitted, the colour is derived from `value` (warning/purple/success).
+   */
+  color?: string
   className?: string
   "aria-label"?: string
 }
@@ -67,6 +72,7 @@ function buildPiePath(cx: number, cy: number, r: number, angle: number): string 
 function ProgressRing({
   value,
   size = SIZE,
+  color,
   className,
   "aria-label": ariaLabel,
 }: ProgressRingProps) {
@@ -86,14 +92,14 @@ function ProgressRing({
   // ── 0–100 % — full outer ring + inner pie progress ─────────────────────────
   const hasProgress = v > 0
   const progressColor =
-    v >= 100 ? COLOR.complete : v >= 50 ? COLOR.high : COLOR.low
+    color ?? (v >= 100 ? COLOR.complete : v >= 50 ? COLOR.high : COLOR.low)
   const angle = (v / 100) * 2 * Math.PI
 
   // Special "done" state — solid green circle with animated check, no inner pie.
   if (v === 100) {
     return (
       <svg {...svgProps} aria-label={ariaLabel ?? "Complete"}>
-        <circle cx="10" cy="10" r={OUTER_RADIUS} fill={COLOR.complete} />
+        <circle cx="10" cy="10" r={OUTER_RADIUS} fill={progressColor} />
         {/* Slightly smaller animated checkmark, centred in the circle */}
         <g transform="translate(10 10) scale(0.78) translate(-9 -9)">
           <CheckIcon />
@@ -112,7 +118,7 @@ function ProgressRing({
         cx="10"
         cy="10"
         r={OUTER_RADIUS}
-        stroke={v === 0 ? COLOR.empty : progressColor}
+        stroke={v === 0 ? (color ?? COLOR.empty) : progressColor}
         strokeWidth={OUTER_STROKE}
         strokeDasharray={v === 0 ? "2.75 3" : undefined}
         fill="none"

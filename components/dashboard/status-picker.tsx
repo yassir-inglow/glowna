@@ -10,27 +10,49 @@ import { Button } from "@/components/ui/button"
 import { ProgressRing } from "@/components/ui/progress-ring"
 import { updateTaskStatus } from "@/app/actions"
 import { markMutation } from "@/hooks/mutation-tracker"
+import { getColumnRingColor } from "@/hooks/use-project-board-columns"
 
-export type TaskStatusValue = "todo" | "in_progress" | "done"
+export type TaskStatusValue = string
 
-const STATUS_OPTIONS: {
-  value: TaskStatusValue
+type StatusSource = {
+  id: string
   label: string
-  ringValue: number
-  color: string
-}[] = [
-  { value: "todo", label: "Blocked", ringValue: 0, color: "text-gray-cool-500" },
-  { value: "in_progress", label: "Pending", ringValue: 75, color: "text-purple-500" },
-  { value: "done", label: "Approved", ringValue: 100, color: "text-success-500" },
+  progress: number
+  headerBg?: string
+}
+
+const DEFAULT_STATUS_OPTIONS: { value: string; label: string; ringValue: number; ringColor?: string }[] = [
+  { value: "todo", label: "To do", ringValue: 0 },
+  { value: "in_progress", label: "In progress", ringValue: 50 },
+  { value: "done", label: "Done", ringValue: 100 },
 ]
 
-export function getStatusConfig(status: string) {
-  return STATUS_OPTIONS.find((o) => o.value === status) ?? STATUS_OPTIONS[0]
+function humanizeStatus(status: string) {
+  return status
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (m) => m.toUpperCase())
+}
+
+function buildStatusOptions(columns?: StatusSource[]) {
+  if (!columns || columns.length === 0) return DEFAULT_STATUS_OPTIONS
+  return columns.map((c) => ({ value: c.id, label: c.label, ringValue: c.progress, ringColor: c.headerBg ? getColumnRingColor(c.headerBg) : undefined }))
+}
+
+export function getStatusConfig(status: string, columns?: StatusSource[]) {
+  const v = status || "todo"
+  const fromColumns = columns?.find((c) => c.id === v)
+  if (fromColumns) return { value: fromColumns.id, label: fromColumns.label, ringValue: fromColumns.progress, ringColor: fromColumns.headerBg ? getColumnRingColor(fromColumns.headerBg) : undefined }
+  const def = DEFAULT_STATUS_OPTIONS.find((o) => o.value === v)
+  if (def) return def
+  return { value: v, label: humanizeStatus(v), ringValue: 50, ringColor: undefined }
 }
 
 type StatusPickerProps = {
   taskId: string
   status: TaskStatusValue
+  columns?: StatusSource[]
   onStatusChange?: (status: TaskStatusValue) => void
   className?: string
 }
@@ -38,10 +60,12 @@ type StatusPickerProps = {
 export function StatusPicker({
   taskId,
   status,
+  columns,
   onStatusChange,
   className,
 }: StatusPickerProps) {
   const [, startTransition] = useTransition()
+  const options = buildStatusOptions(columns)
 
   function handleSelect(value: TaskStatusValue) {
     const prev = status
@@ -60,7 +84,7 @@ export function StatusPicker({
   return (
     <div className={cn("w-[200px]", className)}>
       <div className="flex flex-col gap-0.5 p-2">
-        {STATUS_OPTIONS.map((option) => (
+        {options.map((option) => (
           <button
             key={option.value}
             type="button"
@@ -68,7 +92,7 @@ export function StatusPicker({
             className="flex w-full items-center justify-between rounded-full px-3 py-2 transition-colors hover:bg-alpha-900 cursor-pointer"
           >
             <div className="flex items-center gap-2">
-              <ProgressRing value={option.ringValue} size={16} />
+              <ProgressRing value={option.ringValue} size={16} color={option.ringColor} />
               <span className="text-text-sm font-medium text-gray-cool-600">
                 {option.label}
               </span>
@@ -92,6 +116,7 @@ export function StatusPicker({
 type StatusPopoverProps = {
   taskId: string
   status: TaskStatusValue
+  columns?: StatusSource[]
   onStatusChange?: (status: TaskStatusValue) => void
   children: React.ReactNode
 }
@@ -99,6 +124,7 @@ type StatusPopoverProps = {
 export function StatusPopover({
   taskId,
   status,
+  columns,
   onStatusChange,
   children,
 }: StatusPopoverProps) {
@@ -113,6 +139,7 @@ export function StatusPopover({
         <StatusPicker
           taskId={taskId}
           status={status}
+          columns={columns}
           onStatusChange={(v) => {
             onStatusChange?.(v)
             setOpen(false)
@@ -127,7 +154,7 @@ export function StatusButton({ status }: { status: TaskStatusValue }) {
   const config = getStatusConfig(status)
   return (
     <Button variant="secondary" size="xxs">
-      <ProgressRing value={config.ringValue} size={16} />
+      <ProgressRing value={config.ringValue} size={16} color={config.ringColor} />
       {config.label}
     </Button>
   )

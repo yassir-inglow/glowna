@@ -9,45 +9,15 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { cn } from "@/lib/utils"
 import { KanbanCard } from "@/components/dashboard/kanban-card"
 import { ProgressRing } from "@/components/ui/progress-ring"
+import { getColumnRingColor, type BoardColumnConfig } from "@/hooks/use-project-board-columns"
 import type { Priority } from "@/components/dashboard/priority-picker"
 import type { TaskWithProject, ProjectMember } from "@/lib/data"
 
-export type TaskStatus = "todo" | "in_progress" | "done"
-
-export const STATUS_CONFIG: Record<
-  TaskStatus,
-  {
-    label: string
-    /** Pill header background colour */
-    headerBg: string
-    /** Drop-zone area background colour */
-    bodyBg: string
-    /** Ring progress value (0 / 50 / 100) */
-    progress: number
-  }
-> = {
-  todo: {
-    label: "Blocked",
-    headerBg: "bg-gray-cool-25",
-    bodyBg: "bg-gray-cool-25",
-    progress: 0,
-  },
-  in_progress: {
-    label: "Pending",
-    headerBg: "bg-purple-25",
-    bodyBg: "bg-gray-cool-25",
-    progress: 75,
-  },
-  done: {
-    label: "Approved",
-    headerBg: "bg-success-25",
-    bodyBg: "bg-gray-cool-25",
-    progress: 100,
-  },
-}
+export type TaskStatus = string
 
 type KanbanColumnProps = {
-  id: TaskStatus
+  id: string
+  config: BoardColumnConfig
   tasks: TaskWithProject[]
   members: ProjectMember[]
   /** Disable layout animation for the card that just dropped. */
@@ -56,7 +26,7 @@ type KanbanColumnProps = {
   selectedTaskId?: string | null
   onTaskCompletedChange?: (taskId: string, completed: boolean) => void
   onTaskPriorityChange?: (taskId: string, priority: Priority) => void
-  onAddTask?: (status: TaskStatus) => void
+  onAddTask?: (status: string) => void
   /** When defined, show a blue drop-indicator line. `string` = before that card, `null` = at the end. */
   dropIndicatorBeforeId?: string | null
 }
@@ -78,6 +48,7 @@ function DropLine({ className }: { className?: string }) {
 
 const KanbanColumn = React.memo(function KanbanColumn({
   id,
+  config,
   tasks,
   members,
   suppressLayoutForId,
@@ -88,7 +59,6 @@ const KanbanColumn = React.memo(function KanbanColumn({
   dropIndicatorBeforeId,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id })
-  const config = STATUS_CONFIG[id]
   const taskIds = React.useMemo(() => tasks.map((t) => t.id), [tasks])
 
   return (
@@ -105,6 +75,7 @@ const KanbanColumn = React.memo(function KanbanColumn({
           <ProgressRing
             value={config.progress}
             size={20}
+            color={getColumnRingColor(config.headerBg)}
             aria-label={`${config.label} progress`}
           />
           <span className="text-text-sm font-semibold text-gray-cool-700">

@@ -14,16 +14,17 @@ import { AssigneePopover } from "@/components/dashboard/assignee-popover"
 import { PriorityPopover, getPriorityConfig } from "@/components/dashboard/priority-picker"
 import type { Priority } from "@/components/dashboard/priority-picker"
 import { StatusPopover, getStatusConfig } from "@/components/dashboard/status-picker"
-import type { TaskStatusValue } from "@/components/dashboard/status-picker"
 import { ProgressRing } from "@/components/ui/progress-ring"
 import { updateTaskTitle, updateTaskDates, toggleTaskCompleted } from "@/app/actions"
 import { markMutation, hasRecentLocalMutation } from "@/hooks/mutation-tracker"
+import type { BoardColumnConfig } from "@/hooks/use-project-board-columns"
 import type { ProjectMember, TaskWithProject } from "@/lib/data"
 import type { DateRange } from "react-day-picker"
 
 type TaskDetailPanelProps = {
   task: TaskWithProject
   members: ProjectMember[]
+  boardColumns?: BoardColumnConfig[]
   onClose: () => void
   onTaskToggle?: (taskId: string, completed: boolean) => Promise<void>
   onTitleChange?: (taskId: string, title: string) => void
@@ -33,7 +34,7 @@ type TaskDetailPanelProps = {
   onStatusChange?: (taskId: string, status: string) => void
 }
 
-export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleChange, onDateChange, onPriorityChange, onAssigneeChange, onStatusChange }: TaskDetailPanelProps) {
+export function TaskDetailPanel({ task, members, boardColumns, onClose, onTaskToggle, onTitleChange, onDateChange, onPriorityChange, onAssigneeChange, onStatusChange }: TaskDetailPanelProps) {
   const [, startTransition] = useTransition()
 
   // ── Title ──────────────────────────────────────────────────────────────────
@@ -176,7 +177,7 @@ export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleC
       : "Date"
 
   const priorityConfig = getPriorityConfig(task.priority ?? "none")
-  const statusConfig = getStatusConfig(task.status ?? "todo")
+  const statusConfig = getStatusConfig(task.status ?? "todo", boardColumns)
 
   const assigneeLabel = displayAssignees.length === 0
     ? "Assignee"
@@ -296,11 +297,12 @@ export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleC
           {/* Status */}
           <StatusPopover
             taskId={task.id}
-            status={(task.status ?? "todo") as TaskStatusValue}
+            status={task.status ?? "todo"}
+            columns={boardColumns}
             onStatusChange={(s) => onStatusChange?.(task.id, s)}
           >
             <Button variant="secondary" size="xxs">
-              <ProgressRing value={statusConfig.ringValue} size={16} />
+              <ProgressRing value={statusConfig.ringValue} size={16} color={statusConfig.ringColor} />
               {statusConfig.label}
             </Button>
           </StatusPopover>

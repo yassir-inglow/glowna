@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarAvvvatars, AvatarGroup, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SearchButton } from "@/components/dashboard/search-button"
+import { ColumnsPopover } from "@/components/dashboard/columns-popover"
 import { TaskRow } from "@/components/dashboard/task-row"
 import { TaskContextMenu } from "@/components/dashboard/task-context-menu"
 import { NewTaskRow } from "@/components/dashboard/new-task-row"
@@ -17,6 +18,7 @@ import { KanbanBoard } from "@/components/dashboard/kanban-board"
 import { TimelineView } from "@/components/dashboard/timeline-view"
 import { useRealtimeRefresh } from "@/hooks/use-realtime-refresh"
 import { useProjectPresence } from "@/hooks/use-project-presence"
+import { useProjectBoardColumns, type BoardColumnConfig } from "@/hooks/use-project-board-columns"
 import { useUser } from "@/components/dashboard/user-provider"
 import { reorderTasksInColumn as reorderAction } from "@/app/actions"
 import { markMutation } from "@/hooks/mutation-tracker"
@@ -35,6 +37,8 @@ const SAVE_DELAY_MS = 6000
 type ProjectDetailProps = {
   project: ProjectWithMembers
   tasks: TaskWithProject[]
+  boardColumns?: BoardColumnConfig[]
+  onSaveBoardColumns?: (next: BoardColumnConfig[]) => Promise<void> | void
   onDeleteTask?: (taskId: string) => void
   /** Called when a task's completed state is toggled (for local-state sync in the drawer). */
   onTaskToggle?: (taskId: string, completed: boolean) => Promise<void>
@@ -56,7 +60,7 @@ type ProjectDetailProps = {
   onTaskDateChange?: (taskId: string, dueDate: string | null, dueDateEnd: string | null) => void
 }
 
-export function ProjectDetail({ project, tasks, onDeleteTask, onTaskToggle, onTaskCreated, enableRealtimeRefresh = true, onTaskSelect, selectedTaskId, onTaskPriorityChange, onTaskStatusChange, onTaskReorder, onTaskDateChange }: ProjectDetailProps) {
+export function ProjectDetail({ project, tasks, boardColumns: boardColumnsProp, onSaveBoardColumns, onDeleteTask, onTaskToggle, onTaskCreated, enableRealtimeRefresh = true, onTaskSelect, selectedTaskId, onTaskPriorityChange, onTaskStatusChange, onTaskReorder, onTaskDateChange }: ProjectDetailProps) {
   const [activeView, setActiveView] = React.useState("overview")
   const [pendingPatches, setPendingPatches] = React.useState<
     Map<string, Partial<Pick<TaskWithProject, "status" | "board_position" | "priority" | "completed">>>
@@ -66,7 +70,11 @@ export function ProjectDetail({ project, tasks, onDeleteTask, onTaskToggle, onTa
   const [lastFailedUpdates, setLastFailedUpdates] = React.useState<
     { updates: { id: string; status: string; board_position: number }[] } | null
   >(null)
-  const saveTimerRef = React.useRef<number | null>(null)
+  const [saveTimerId, setSaveTimerId] = React.useState<number | null>(null)
+
+  const boardColumnsState = useProjectBoardColumns(boardColumnsProp ? null : project.id)
+  const boardColumns = boardColumnsProp ?? boardColumnsState.columns
+  const saveBoardColumns = onSaveBoardColumns ?? boardColumnsState.save
 
   const tasksById = React.useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks])
 
@@ -80,21 +88,29 @@ export function ProjectDetail({ project, tasks, onDeleteTask, onTaskToggle, onTa
       })
   }, [tasks, pendingDeletes, pendingPatches])
 
-  const clearSaveTimer = React.useCallback(() => {
-    if (saveTimerRef.current) {
-      window.clearTimeout(saveTimerRef.current)
-      saveTimerRef.current = null
+  React.useEffect(() => {
+    return () => {
+      if (saveTimerId) window.clearTimeout(saveTimerId)
     }
-  }, [])
+  }, [saveTimerId])
 
   const beginSave = React.useCallback(() => {
     setSaveStatus("saving")
     setLastFailedUpdates(null)
-    clearSaveTimer()
-    saveTimerRef.current = window.setTimeout(() => {
-      setSaveStatus((prev) => (prev === "saving" ? "delayed" : prev))
-    }, SAVE_DELAY_MS)
-  }, [clearSaveTimer])
+    setSaveTimerId((prev) => {
+      if (prev) window.clearTimeout(prev)
+      return window.setTimeout(() => {
+        setSaveStatus((prevStatus) => (prevStatus === "saving" ? "delayed" : prevStatus))
+      }, SAVE_DELAY_MS)
+    })
+  }, [])
+
+  const clearSaveTimer = React.useCallback(() => {
+    setSaveTimerId((prev) => {
+      if (prev) window.clearTimeout(prev)
+      return null
+    })
+  }, [])
 
   const finishSave = React.useCallback(() => {
     clearSaveTimer()
@@ -345,7 +361,13 @@ export function ProjectDetail({ project, tasks, onDeleteTask, onTaskToggle, onTa
           </TabsList>
         </Tabs>
 
-        <SearchButton />
+        <div className="flex items-center gap-2">
+          <SearchButton />
+          <ColumnsPopover
+            columns={boardColumns}
+            onSave={saveBoardColumns}
+          />
+        </div>
       </div>
 
       {saveStatus !== "idle" && (
@@ -371,6 +393,7 @@ export function ProjectDetail({ project, tasks, onDeleteTask, onTaskToggle, onTa
         <KanbanBoard
           tasks={displayTasks}
           project={project}
+          columns={boardColumns}
           onTaskToggle={onTaskToggle}
           onTaskCreated={onTaskCreated}
           onDeleteTask={(taskId) => { handleOptimisticDelete(taskId); onDeleteTask?.(taskId) }}
@@ -384,6 +407,7 @@ export function ProjectDetail({ project, tasks, onDeleteTask, onTaskToggle, onTa
         <TimelineView
           tasks={displayTasks}
           projectId={project.id}
+          columns={boardColumns}
           onTaskSelect={onTaskSelect}
           selectedTaskId={selectedTaskId}
           onTaskDateChange={onTaskDateChange}

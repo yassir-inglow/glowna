@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase/client"
 import { hasRecentLocalMutation, markMutation } from "@/hooks/mutation-tracker"
 import { onPeerChange } from "@/hooks/use-broadcast-sync"
 import { toggleTaskCompleted, reorderTasksInColumn } from "@/app/actions"
+import { useProjectBoardColumns } from "@/hooks/use-project-board-columns"
 import type { ProjectWithMembers, TaskWithProject } from "@/lib/data"
 
 type ProjectDrawerProps = {
@@ -33,6 +34,11 @@ export function ProjectDrawer({ projects, projectId, onClose }: ProjectDrawerPro
   )
 
   const isOpen = !!project
+
+  const {
+    columns: boardColumns,
+    save: saveBoardColumns,
+  } = useProjectBoardColumns(projectId)
 
   // Task cache: show cached data immediately on reopen, refetch in background
   const taskCacheRef = React.useRef<Map<string, TaskWithProject[]>>(new Map())
@@ -387,6 +393,8 @@ export function ProjectDrawer({ projects, projectId, onClose }: ProjectDrawerPro
                 <ProjectDetail
                   project={project}
                   tasks={tasks}
+                  boardColumns={boardColumns}
+                  onSaveBoardColumns={saveBoardColumns}
                   onDeleteTask={(taskId) => { setSelectedTaskId(null); setTasks((prev) => prev?.filter((t) => t.id !== taskId) ?? null) }}
                   onTaskToggle={handleTaskToggle}
                   onTaskCreated={handleTaskCreated}
@@ -410,6 +418,7 @@ export function ProjectDrawer({ projects, projectId, onClose }: ProjectDrawerPro
                 key="task-panel"
                 task={selectedTask}
                 members={project.members}
+                boardColumns={boardColumns}
                 onClose={() => setSelectedTaskId(null)}
                 onTaskToggle={handleTaskToggle}
                 onTitleChange={handleTaskTitleChange}
@@ -446,7 +455,10 @@ function DrawerSkeleton({ project }: { project: ProjectWithMembers }) {
           <Skeleton className="h-8 w-14 rounded-full" />
           <Skeleton className="h-8 w-18 rounded-full" />
         </div>
-        <Skeleton className="h-9 w-9 rounded-full" />
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-9 w-9 rounded-full" />
+          <Skeleton className="h-9 w-9 rounded-full" />
+        </div>
       </div>
 
       {/* Task list */}

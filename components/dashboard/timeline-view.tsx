@@ -7,6 +7,7 @@ import { createTask, updateTaskDates } from "@/app/actions"
 import { markMutation } from "@/hooks/mutation-tracker"
 import { ProgressRing } from "@/components/ui/progress-ring"
 import { getStatusConfig } from "@/components/dashboard/status-picker"
+import type { BoardColumnConfig } from "@/hooks/use-project-board-columns"
 import type { TaskWithProject } from "@/lib/data"
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -180,13 +181,14 @@ type CreateDragState = {
 type TimelineViewProps = {
   tasks: TaskWithProject[]
   projectId: string
+  columns?: BoardColumnConfig[]
   onTaskSelect?: (taskId: string) => void
   selectedTaskId?: string | null
   onTaskDateChange?: (taskId: string, dueDate: string | null, dueDateEnd: string | null) => void
   onTaskCreated?: () => void
 }
 
-export function TimelineView({ tasks, projectId, onTaskSelect, selectedTaskId, onTaskDateChange, onTaskCreated }: TimelineViewProps) {
+export function TimelineView({ tasks, projectId, columns, onTaskSelect, selectedTaskId, onTaskDateChange, onTaskCreated }: TimelineViewProps) {
   const { rangeStart, totalDays, today, hasAnyDate } = useTimelineRange(tasks)
   const { days, months } = useDayColumns(rangeStart, totalDays, today)
 
@@ -537,6 +539,7 @@ export function TimelineView({ tasks, projectId, onTaskSelect, selectedTaskId, o
             {tasks.map((task, index) => {
               const bar = getBarPosition(task, rangeStart)
               const top = index * ROW_HEIGHT + (ROW_HEIGHT - BAR_HEIGHT) / 2
+              const statusCfg = getStatusConfig(task.status, columns)
 
               if (!bar) {
                 // No-date task: render dot at today position
@@ -617,7 +620,7 @@ export function TimelineView({ tasks, projectId, onTaskSelect, selectedTaskId, o
                       }
                     }}
                   >
-                    <ProgressRing value={getStatusConfig(task.status).ringValue} size={14} className="shrink-0" />
+                    <ProgressRing value={statusCfg.ringValue} color={statusCfg.ringColor} size={14} className="shrink-0" />
                     <span className="truncate select-none text-gray-cool-700">{task.title}</span>
                   </div>
 

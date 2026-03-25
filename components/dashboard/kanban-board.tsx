@@ -18,31 +18,31 @@ import {
 } from "@dnd-kit/core"
 import { LayoutGroup } from "motion/react"
 
-import { KanbanColumn, type TaskStatus } from "@/components/dashboard/kanban-column"
+import { KanbanColumn } from "@/components/dashboard/kanban-column"
 import { KanbanCard } from "@/components/dashboard/kanban-card"
 import { reorderTasksInColumn as reorderAction } from "@/app/actions"
 import { markMutation } from "@/hooks/mutation-tracker"
+import { humanizeStatus, type BoardColumnConfig } from "@/hooks/use-project-board-columns"
 import type { Priority } from "@/components/dashboard/priority-picker"
 import type { TaskWithProject, ProjectWithMembers } from "@/lib/data"
 
-const COLUMN_ORDER: TaskStatus[] = ["todo", "in_progress", "done"]
 const BOARD_POSITION_GAP = 1000
 
-type Columns = Record<TaskStatus, TaskWithProject[]>
+type Columns = Record<string, TaskWithProject[]>
 
 /** Where the blue drop-indicator line is shown. */
 type DropIndicator = {
   /** Target column */
-  column: TaskStatus
+  column: string
   /** Show the line BEFORE this card. `null` means at the end of the column. */
   beforeId: string | null
 }
 
 // ─── Pure helpers ────────────────────────────────────────────────────────────
 
-function findContainerIn(cols: Columns, taskId: string): TaskStatus | null {
+function findContainerIn(cols: Columns, taskId: string): string | null {
   for (const [status, tasks] of Object.entries(cols)) {
-    if (tasks.some((t) => t.id === taskId)) return status as TaskStatus
+    if (tasks.some((t) => t.id === taskId)) return status
   }
   return null
 }
@@ -77,6 +77,7 @@ function computeIndicator(
   activeId: string,
   over: DragOverEvent["over"],
   cols: Columns,
+  columnOrder: string[],
   delta: { y: number },
   activeInitialRect: { top: number; height: number } | null,
   overRect: { top: number; height: number } | null,
@@ -84,10 +85,10 @@ function computeIndicator(
   if (!over || (over.id as string) === activeId) return null
 
   // Hovering over empty area of a column
-  if (COLUMN_ORDER.includes(over.id as TaskStatus)) {
-    const column = over.id as TaskStatus
+  if (columnOrder.includes(over.id as string)) {
+    const column = over.id as string
     // No-op: active is already last in this column
-    const colTasks = cols[column]
+    const colTasks = cols[column] ?? []
     const activeColumn = findContainerIn(cols, activeId)
     if (
       activeColumn === column &&
@@ -141,6 +142,7 @@ const kanbanCollision: CollisionDetection = (args) => {
 type KanbanBoardProps = {
   tasks: TaskWithProject[]
   project: ProjectWithMembers
+  columns: BoardColumnConfig[]
   onTaskToggle?: (taskId: string, completed: boolean) => Promise<void>
   onTaskCreated?: () => void
   onDeleteTask?: (taskId: string) => void
@@ -158,6 +160,7 @@ type KanbanBoardProps = {
 export function KanbanBoard({
   tasks,
   project,
+  columns: columnsConfig,
   onTaskToggle,
   onTaskSelect,
   selectedTaskId,
@@ -165,18 +168,54 @@ export function KanbanBoard({
   onTaskStatusChange,
   onTaskReorder,
 }: KanbanBoardProps) {
+  const effectiveColumnsConfig = React.useMemo(() => {
+    const existing = new Set(columnsConfig.map((c) => c.id))
+    const unknown: BoardColumnConfig[] = []
+
+    for (const task of tasks) {
+      const status = (task.status ?? "todo") as string
+      if (existing.has(status)) continue
+      existing.add(status)
+      unknown.push({
+        id: status,
+        label: humanizeStatus(status),
+        headerBg: "bg-gray-cool-25",
+        bodyBg: "bg-gray-cool-25",
+        progress: 50,
+      })
+    }
+
+    if (unknown.length === 0) return columnsConfig
+
+    const doneIndex = columnsConfig.findIndex((c) => c.id === "done")
+    if (doneIndex < 0) return [...columnsConfig, ...unknown]
+
+    return [
+      ...columnsConfig.slice(0, doneIndex),
+      ...unknown,
+      ...columnsConfig.slice(doneIndex),
+    ]
+  }, [columnsConfig, tasks])
+
+  const columnOrder = React.useMemo(
+    () => effectiveColumnsConfig.map((c) => c.id),
+    [effectiveColumnsConfig],
+  )
+
   // Group tasks by status, sorted by board_position
   const columns = React.useMemo(() => {
-    const grouped: Columns = { todo: [], in_progress: [], done: [] }
+    const grouped: Columns = {}
+    for (const col of effectiveColumnsConfig) grouped[col.id] = []
     for (const task of tasks) {
-      const status = (task.status ?? "todo") as TaskStatus
-      ;(grouped[status] ?? grouped.todo).push(task)
+      const status = (task.status ?? "todo") as string
+      if (!grouped[status]) grouped[status] = []
+      grouped[status].push(task)
     }
     for (const col of Object.values(grouped)) {
       col.sort((a, b) => a.board_position - b.board_position)
     }
     return grouped
-  }, [tasks])
+  }, [tasks, effectiveColumnsConfig])
 
   const [localColumns, setLocalColumns] = React.useState(columns)
   const [activeId, setActiveId] = React.useState<string | null>(null)
@@ -257,6 +296,7 @@ export function KanbanBoard({
       activeId,
       event.over,
       colsRef.current,
+      columnOrder,
       event.delta,
       initialRect ? { top: initialRect.top, height: initialRect.height } : null,
       overRect ? { top: overRect.top, height: overRect.height } : null,
@@ -283,6 +323,7 @@ export function KanbanBoard({
         activeId,
         pendingEv.over,
         colsRef.current,
+        columnOrder,
         pendingEv.delta,
         initialRect ? { top: initialRect.top, height: initialRect.height } : null,
         overRect ? { top: overRect.top, height: overRect.height } : null,
@@ -428,11 +469,12 @@ export function KanbanBoard({
     >
       <LayoutGroup>
         <div className="flex h-full gap-4 overflow-x-auto pb-4 scrollbar-hidden">
-          {COLUMN_ORDER.map((status) => (
+          {effectiveColumnsConfig.map((col) => (
             <KanbanColumn
-              key={status}
-              id={status}
-              tasks={localColumns[status]}
+              key={col.id}
+              id={col.id}
+              config={col}
+              tasks={localColumns[col.id] ?? []}
               members={project.members}
               suppressLayoutForId={justDroppedId}
               onTaskSelect={onTaskSelect}
@@ -440,7 +482,7 @@ export function KanbanBoard({
               onTaskCompletedChange={(taskId, completed) => onTaskToggle?.(taskId, completed)}
               onTaskPriorityChange={onTaskPriorityChange}
               dropIndicatorBeforeId={
-                dropIndicator?.column === status ? dropIndicator.beforeId : undefined
+                dropIndicator?.column === col.id ? dropIndicator.beforeId : undefined
               }
             />
           ))}
