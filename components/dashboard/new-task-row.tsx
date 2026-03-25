@@ -36,11 +36,14 @@ type NewTaskRowProps = {
   members?: ProjectMember[]
   onDone?: () => void
   onCreated?: () => void
+  autoFocus?: boolean
+  inputRef?: React.RefObject<HTMLInputElement | null>
 }
 
-export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: NewTaskRowProps) {
+export function NewTaskRow({ projectId, projects, members, onDone, onCreated, autoFocus = true, inputRef: inputRefProp }: NewTaskRowProps) {
   const rowRef = React.useRef<HTMLDivElement>(null)
-  const inputRef = React.useRef<HTMLInputElement>(null)
+  const internalInputRef = React.useRef<HTMLInputElement>(null)
+  const inputRef = inputRefProp ?? internalInputRef
   const [selectedProjectId, setSelectedProjectId] = React.useState(
     projectId ?? "",
   )
@@ -57,8 +60,9 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
   const [projectPickerOpen, setProjectPickerOpen] = React.useState(false)
 
   React.useEffect(() => {
+    if (!autoFocus) return
     inputRef.current?.focus()
-  }, [])
+  }, [autoFocus])
 
   function reset() {
     if (inputRef.current) inputRef.current.value = ""

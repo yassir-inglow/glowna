@@ -1,28 +1,17 @@
 "use client"
 
 import * as React from "react"
-import { ArrowDown01Icon } from "@hugeicons/core-free-icons"
-
-import { LayoutGroup, motion } from "motion/react"
-
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarAvvvatars, AvatarGroup, AvatarImage } from "@/components/ui/avatar"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { SearchButton } from "@/components/dashboard/search-button"
-import { ColumnsPopover } from "@/components/dashboard/columns-popover"
+import { ProjectHeader } from "@/components/dashboard/project-header"
 import { TaskRow } from "@/components/dashboard/task-row"
 import { TaskContextMenu } from "@/components/dashboard/task-context-menu"
 import { NewTaskRow } from "@/components/dashboard/new-task-row"
-import { SharePopover } from "@/components/dashboard/invite-popover"
 import { KanbanBoard } from "@/components/dashboard/kanban-board"
 import { TimelineView } from "@/components/dashboard/timeline-view"
 import { useRealtimeRefresh } from "@/hooks/use-realtime-refresh"
-import { useProjectPresence } from "@/hooks/use-project-presence"
 import { useProjectBoardColumns, type BoardColumnConfig } from "@/hooks/use-project-board-columns"
-import { useUser } from "@/components/dashboard/user-provider"
 import { reorderTasksInColumn as reorderAction } from "@/app/actions"
 import { markMutation } from "@/hooks/mutation-tracker"
-import type { ProjectMember, ProjectWithMembers, TaskWithProject } from "@/lib/data"
+import type { ProjectWithMembers, TaskWithProject } from "@/lib/data"
 import type { Priority } from "@/components/dashboard/priority-picker"
 
 function getInitials(name: string | null | undefined): string {
@@ -33,6 +22,8 @@ function getInitials(name: string | null | undefined): string {
 }
 
 const SAVE_DELAY_MS = 6000
+
+type ProjectView = "overview" | "list" | "board" | "timeline"
 
 type ProjectDetailProps = {
   project: ProjectWithMembers
@@ -61,7 +52,9 @@ type ProjectDetailProps = {
 }
 
 export function ProjectDetail({ project, tasks, boardColumns: boardColumnsProp, onSaveBoardColumns, onDeleteTask, onTaskToggle, onTaskCreated, enableRealtimeRefresh = true, onTaskSelect, selectedTaskId, onTaskPriorityChange, onTaskStatusChange, onTaskReorder, onTaskDateChange }: ProjectDetailProps) {
-  const [activeView, setActiveView] = React.useState("overview")
+  const [activeView, setActiveView] = React.useState<ProjectView>("overview")
+  const [focusNewTask, setFocusNewTask] = React.useState(false)
+  const newTaskInputRef = React.useRef<HTMLInputElement>(null)
   const [pendingPatches, setPendingPatches] = React.useState<
     Map<string, Partial<Pick<TaskWithProject, "status" | "board_position" | "priority" | "completed">>>
   >(() => new Map())
@@ -268,108 +261,33 @@ export function ProjectDetail({ project, tasks, boardColumns: boardColumnsProp, 
     })
   }, [beginSave, lastFailedUpdates, runReorderSave])
 
-  const user = useUser()
-  const activeUserIds = useProjectPresence(project.id, user.id)
-
-  const { activeMembers, inactiveMembers } = React.useMemo(() => {
-    const ownerId = project.user_id
-    const ownerFirst = (a: ProjectMember, b: ProjectMember) => {
-      if (a.id === ownerId) return -1
-      if (b.id === ownerId) return 1
-      return 0
-    }
-    const active: ProjectMember[] = []
-    const inactive: ProjectMember[] = []
-    for (const m of project.members) {
-      if (activeUserIds.has(m.id)) active.push(m)
-      else inactive.push(m)
-    }
-    active.sort(ownerFirst)
-    inactive.sort(ownerFirst)
-    return { activeMembers: active, inactiveMembers: inactive }
-  }, [project.members, project.user_id, activeUserIds])
-
   useRealtimeRefresh({ table: "tasks", filter: `project_id=eq.${project.id}`, enabled: enableRealtimeRefresh })
   useRealtimeRefresh({ table: "task_assignees", enabled: enableRealtimeRefresh })
   useRealtimeRefresh({ table: "project_members", filter: `project_id=eq.${project.id}`, enabled: enableRealtimeRefresh })
 
+  React.useEffect(() => {
+    if (!focusNewTask) return
+    if (!newTaskInputRef.current) return
+    newTaskInputRef.current.scrollIntoView({ behavior: "smooth", block: "center" })
+    newTaskInputRef.current.focus()
+    setFocusNewTask(false)
+  }, [focusNewTask])
+
   return (
-    <div className="h-full space-y-6">
-      <div className="flex items-center justify-between">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          trailingIcon={ArrowDown01Icon}
-          className="text-display-xs font-medium text-gray-cool-800 hover:bg-transparent"
-        >
-          {project.title}
-        </Button>
-        <div className="flex items-center gap-3">
-          {project.members.length > 0 && (
-            <LayoutGroup>
-              <div className="flex items-center gap-2">
-                {activeMembers.length > 0 && (
-                  <AvatarGroup>
-                    {activeMembers.map((member) => (
-                      <motion.div key={member.id} layoutId={`presence-${member.id}`} data-slot="avatar" className="inline-flex" transition={{ type: "spring", stiffness: 400, damping: 30 }}>
-                        <Avatar size="xs" active>
-                          {member.avatar_url ? (
-                            <AvatarImage src={member.avatar_url} alt="" />
-                          ) : (
-                            <AvatarAvvvatars value={member.full_name ?? member.email ?? member.id} />
-                          )}
-                        </Avatar>
-                      </motion.div>
-                    ))}
-                  </AvatarGroup>
-                )}
-                {inactiveMembers.length > 0 && (
-                  <AvatarGroup>
-                    {inactiveMembers.map((member) => (
-                      <motion.div key={member.id} layoutId={`presence-${member.id}`} data-slot="avatar" className="inline-flex" transition={{ type: "spring", stiffness: 400, damping: 30 }}>
-                        <Avatar size="xs" active={false}>
-                          {member.avatar_url ? (
-                            <AvatarImage src={member.avatar_url} alt="" />
-                          ) : (
-                            <AvatarAvvvatars value={member.full_name ?? member.email ?? member.id} />
-                          )}
-                        </Avatar>
-                      </motion.div>
-                    ))}
-                  </AvatarGroup>
-                )}
-              </div>
-            </LayoutGroup>
-          )}
-          <SharePopover projectId={project.id} members={project.members} ownerId={project.user_id} />
-        </div>
-      </div>
+    <div className="flex h-full flex-col">
+      <ProjectHeader
+        project={project}
+        activeView={activeView}
+        onActiveViewChange={setActiveView}
+        columns={boardColumns}
+        onSaveColumns={saveBoardColumns}
+        onNewTask={() => {
+          if (activeView === "board" || activeView === "timeline") setActiveView("list")
+          setFocusNewTask(true)
+        }}
+      />
 
-      <div className="flex items-center justify-between gap-4">
-        <Tabs value={activeView} onValueChange={setActiveView}>
-          <TabsList className="h-auto gap-0 rounded-full bg-transparent p-0">
-            {["Overview", "List", "Board", "Timeline"].map((tab) => (
-              <TabsTrigger
-                key={tab.toLowerCase()}
-                value={tab.toLowerCase()}
-                className="rounded-full px-3 py-1.5 text-text-sm font-medium text-gray-cool-400 transition-colors data-[state=active]:bg-alpha-900 data-[state=active]:text-gray-cool-700"
-              >
-                {tab}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-
-        <div className="flex items-center gap-2">
-          <SearchButton />
-          <ColumnsPopover
-            columns={boardColumns}
-            onSave={saveBoardColumns}
-          />
-        </div>
-      </div>
-
+      <div className="mt-6 flex flex-col gap-6">
       {saveStatus !== "idle" && (
         <div className="flex items-center justify-end gap-2 text-text-xs text-gray-cool-500">
           <span>
@@ -419,6 +337,8 @@ export function ProjectDetail({ project, tasks, boardColumns: boardColumnsProp, 
             projectId={project.id}
             members={project.members}
             onCreated={onTaskCreated}
+            autoFocus={false}
+            inputRef={newTaskInputRef}
           />
           {displayTasks.map((task) => (
             <TaskContextMenu key={task.id} taskId={task.id} projectId={task.project_id} onDelete={() => { handleOptimisticDelete(task.id); onDeleteTask?.(task.id) }}>
@@ -451,6 +371,7 @@ export function ProjectDetail({ project, tasks, boardColumns: boardColumnsProp, 
           ))}
         </div>
       )}
+      </div>
     </div>
   )
 }

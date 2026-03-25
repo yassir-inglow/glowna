@@ -23,6 +23,7 @@ import { KanbanCard } from "@/components/dashboard/kanban-card"
 import { reorderTasksInColumn as reorderAction } from "@/app/actions"
 import { markMutation } from "@/hooks/mutation-tracker"
 import { humanizeStatus, type BoardColumnConfig } from "@/hooks/use-project-board-columns"
+import { computeColumnProgress } from "@/lib/board-columns"
 import type { Priority } from "@/components/dashboard/priority-picker"
 import type { TaskWithProject, ProjectWithMembers } from "@/lib/data"
 
@@ -185,16 +186,24 @@ export function KanbanBoard({
       })
     }
 
-    if (unknown.length === 0) return columnsConfig
+    const merged =
+      unknown.length === 0
+        ? columnsConfig
+        : (() => {
+            const doneIndex = columnsConfig.findIndex((c) => c.id === "done")
+            if (doneIndex < 0) return [...columnsConfig, ...unknown]
+            return [
+              ...columnsConfig.slice(0, doneIndex),
+              ...unknown,
+              ...columnsConfig.slice(doneIndex),
+            ]
+          })()
 
-    const doneIndex = columnsConfig.findIndex((c) => c.id === "done")
-    if (doneIndex < 0) return [...columnsConfig, ...unknown]
-
-    return [
-      ...columnsConfig.slice(0, doneIndex),
-      ...unknown,
-      ...columnsConfig.slice(doneIndex),
-    ]
+    const total = merged.length
+    return merged.map((c, index) => ({
+      ...c,
+      progress: computeColumnProgress(index, total),
+    }))
   }, [columnsConfig, tasks])
 
   const columnOrder = React.useMemo(

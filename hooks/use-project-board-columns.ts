@@ -3,6 +3,7 @@
 import * as React from "react"
 
 import { createClient } from "@/lib/supabase/client"
+import { computeColumnProgress } from "@/lib/board-columns"
 import { ensureProjectBoardColumns, saveProjectBoardColumns } from "@/app/actions"
 import { hasRecentLocalMutation, markMutation } from "@/hooks/mutation-tracker"
 import { onPeerChange } from "@/hooks/use-broadcast-sync"
@@ -113,23 +114,18 @@ export function humanizeStatus(status: string) {
     .replace(/\b\w/g, (m) => m.toUpperCase())
 }
 
-function progressForStatus(status: string) {
-  if (status === "todo") return 0
-  if (status === "done") return 100
-  return 50
-}
-
 function normalizeOrder(cols: BoardColumnConfig[]) {
   const todo = cols.find((c) => c.id === "todo")
   const done = cols.find((c) => c.id === "done")
   const middle = cols.filter((c) => c.id !== "todo" && c.id !== "done")
 
-  const ordered = [
+  const ordered: BoardColumnConfig[] = [
     todo ? { ...todo, label: "To do" } : FALLBACK_COLUMNS[0],
     ...middle,
     done ? { ...done, label: "Done" } : FALLBACK_COLUMNS[FALLBACK_COLUMNS.length - 1],
   ]
 
+  const total = ordered.length
   return ordered.map((c, index) => ({
     ...c,
     bodyBg:
@@ -137,7 +133,7 @@ function normalizeOrder(cols: BoardColumnConfig[]) {
         ? c.headerBg
         : (c.bodyBg ?? c.headerBg),
     position: index,
-    progress: progressForStatus(c.id),
+    progress: computeColumnProgress(index, total),
   }))
 }
 

@@ -84,6 +84,7 @@ type ButtonProps = React.ComponentProps<"button"> &
     leadingIcon?: IconSvgElement
     trailingIcon?: IconSvgElement
     iconOnly?: IconSvgElement
+    iconStrokeWidth?: number
     loading?: boolean
   }
 
@@ -95,6 +96,7 @@ function Button({
   leadingIcon,
   trailingIcon,
   iconOnly,
+  iconStrokeWidth,
   loading = false,
   children,
   ...props
@@ -106,7 +108,7 @@ function Button({
 
   const iconPx = iconSizeMap[resolvedSize ?? "md"] ?? 20
   const iconColor = variant === "primary" ? "currentColor" : "var(--icon-color, var(--color-gray-cool-300))"
-  const iconStroke = 1.4
+  const iconStroke = iconStrokeWidth ?? 1.4
 
   const gapClass =
     variant === "primary" || resolvedSize === "icon-xxs"

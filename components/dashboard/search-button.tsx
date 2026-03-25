@@ -65,9 +65,11 @@ type SearchButtonProps = {
   value?: string
   onValueChange?: (value: string) => void
   placeholder?: string
+  size?: "sm" | "md"
+  className?: string
 }
 
-export function SearchButton({ value, onValueChange, placeholder = "Search…" }: SearchButtonProps) {
+export function SearchButton({ value, onValueChange, placeholder = "Search…", size = "md", className }: SearchButtonProps) {
   const controlled = value !== undefined
   const [isOpen, setIsOpen] = React.useState(false)
   const [internalQuery, setInternalQuery] = React.useState("")
@@ -119,8 +121,10 @@ export function SearchButton({ value, onValueChange, placeholder = "Search…" }
     <div
       ref={containerRef}
       className={cn(
-        "flex h-9 items-center overflow-hidden rounded-full border border-gray-cool-100 bg-alpha-900 transition-[width] duration-300 ease-in-out",
-        isOpen ? "w-[220px]" : "w-9"
+        "flex items-center overflow-hidden rounded-full border border-gray-cool-100 bg-alpha-900 transition-[width] duration-300 ease-in-out",
+        size === "sm" ? "h-8" : "h-9",
+        isOpen ? (size === "sm" ? "w-[200px]" : "w-[220px]") : (size === "sm" ? "w-8" : "w-9"),
+        className,
       )}
     >
       {/* Search icon — doubles as trigger when closed */}
@@ -128,7 +132,8 @@ export function SearchButton({ value, onValueChange, placeholder = "Search…" }
         type="button"
         onClick={isOpen ? undefined : open}
         className={cn(
-          "flex h-9 w-9 shrink-0 items-center justify-center text-gray-cool-500",
+          "flex shrink-0 items-center justify-center text-gray-cool-500",
+          size === "sm" ? "h-8 w-8" : "h-9 w-9",
           !isOpen && "hover:text-gray-cool-700"
         )}
         aria-label={isOpen ? undefined : placeholder}

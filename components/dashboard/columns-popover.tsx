@@ -7,6 +7,7 @@ import {
   Delete02Icon,
   MoreVerticalIcon,
   PlusSignIcon,
+  Settings05Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
@@ -20,30 +21,7 @@ import {
   getColumnRingColor,
   type BoardColumnConfig,
 } from "@/hooks/use-project-board-columns"
-
-function ColumnsIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M4 6.5C4 5.67157 4.67157 5 5.5 5H8.5C9.32843 5 10 5.67157 10 6.5V17.5C10 18.3284 9.32843 19 8.5 19H5.5C4.67157 19 4 18.3284 4 17.5V6.5Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
-      <path
-        d="M14 6.5C14 5.67157 14.6716 5 15.5 5H18.5C19.3284 5 20 5.67157 20 6.5V17.5C20 18.3284 19.3284 19 18.5 19H15.5C14.6716 19 14 18.3284 14 17.5V6.5Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
-    </svg>
-  )
-}
+import { computeColumnProgress } from "@/lib/board-columns"
 
 type ColumnsPopoverProps = {
   columns: BoardColumnConfig[]
@@ -66,12 +44,6 @@ function moveInArray<T>(arr: T[], from: number, to: number) {
   return next
 }
 
-function progressForStatus(id: string) {
-  if (id === "todo") return 0
-  if (id === "done") return 100
-  return 50
-}
-
 function normalizeFixed(next: BoardColumnConfig[], fallback: BoardColumnConfig[]) {
   const todo = next.find((c) => c.id === "todo") ?? fallback.find((c) => c.id === "todo")
   const done = next.find((c) => c.id === "done") ?? fallback.find((c) => c.id === "done")
@@ -84,9 +56,11 @@ function normalizeFixed(next: BoardColumnConfig[], fallback: BoardColumnConfig[]
     ? { ...done, label: "Done" }
     : { id: "done", label: "Done", headerBg: "bg-success-25", bodyBg: "bg-success-25", progress: 100 }
 
-  return [fixedTodo, ...middle, fixedDone].map((c) => ({
+  const ordered = [fixedTodo, ...middle, fixedDone]
+  const total = ordered.length
+  return ordered.map((c, index) => ({
     ...c,
-    progress: progressForStatus(c.id),
+    progress: computeColumnProgress(index, total),
   }))
 }
 
@@ -102,6 +76,10 @@ export function ColumnsPopover({ columns, onSave }: ColumnsPopoverProps) {
   const trimmed = name.trim()
   const canAdd = trimmed.length > 0
 
+  function signature(cols: BoardColumnConfig[]) {
+    return cols.map((c) => c.id).join("|")
+  }
+
   function resetDraft() {
     setDraft(columns)
     setIsAdding(false)
@@ -110,15 +88,29 @@ export function ColumnsPopover({ columns, onSave }: ColumnsPopoverProps) {
   }
 
   function handleOpenChange(next: boolean) {
-    setOpen(next)
-    if (next) {
-      setDraft(columns)
-      setIsAdding(false)
-      setName("")
-      setError(null)
-    } else {
+    if (!next) {
+      const originalSig = signature(normalizeFixed(columns, columns))
+      const draftSig = signature(normalizeFixed(draft, columns))
+      const hasOrderChanges = draftSig !== originalSig
+      const hasPendingAdd = isAdding && canAdd
+
+      // If the user closes by clicking outside / ESC, persist changes so the
+      // board and dropdowns reflect the new order immediately.
+      if ((hasOrderChanges || hasPendingAdd) && !isSaving) {
+        void handleSave()
+        return
+      }
+
+      setOpen(false)
       resetDraft()
+      return
     }
+
+    setOpen(true)
+    setDraft(columns)
+    setIsAdding(false)
+    setName("")
+    setError(null)
   }
 
   function startAdd() {
@@ -197,12 +189,12 @@ export function ColumnsPopover({ columns, onSave }: ColumnsPopoverProps) {
         <Button
           type="button"
           variant="secondary"
-          size="icon-sm"
+          size="icon-xs"
           aria-label="Columns"
-          className="size-9 border border-gray-cool-100 bg-alpha-900 text-gray-cool-500 hover:bg-alpha-800"
-        >
-          <ColumnsIcon />
-        </Button>
+          iconOnly={Settings05Icon}
+          iconStrokeWidth={1.5}
+          className="size-8 border-0 bg-alpha-900 text-gray-cool-500 [--icon-color:currentColor] hover:bg-alpha-800"
+        />
       </PopoverTrigger>
       <PopoverContent side="bottom" align="end" className="w-[360px]">
         <div className="p-4 pb-3">
@@ -289,7 +281,10 @@ export function ColumnsPopover({ columns, onSave }: ColumnsPopoverProps) {
             type="button"
             variant="secondary"
             size="xs"
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              resetDraft()
+              setOpen(false)
+            }}
             className="flex-1"
           >
             Cancel
@@ -355,7 +350,7 @@ function ColumnRow({
             <HugeiconsIcon icon={MoreVerticalIcon} size={16} strokeWidth={2} />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" sideOffset={6}>
+        <DropdownMenuContent align="end" sideOffset={6} portalled={false}>
           <DropdownMenuItem
             onSelect={onMoveUp}
             disabled={locked || !canMoveUp}

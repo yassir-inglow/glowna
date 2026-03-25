@@ -18,9 +18,10 @@ type SharePopoverProps = {
   members: ProjectMember[]
   ownerId: string
   className?: string
+  showIcon?: boolean
 }
 
-export function SharePopover({ projectId, members, ownerId, className }: SharePopoverProps) {
+export function SharePopover({ projectId, members, ownerId, className, showIcon = true }: SharePopoverProps) {
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState("")
   const [isPending, startTransition] = useTransition()
@@ -76,7 +77,7 @@ export function SharePopover({ projectId, members, ownerId, className }: SharePo
           type="button"
           variant="secondary"
           size="xxs"
-          leadingIcon={UserGroupIcon}
+          leadingIcon={showIcon ? UserGroupIcon : undefined}
           className={className}
         >
           Share

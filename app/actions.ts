@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { getResendClient } from "@/lib/resend"
 import { projectInviteEmail } from "@/lib/emails/project-invite"
 import { projectRemovedEmail } from "@/lib/emails/project-removed"
+import { computeColumnProgress } from "@/lib/board-columns"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { headers } from "next/headers"
@@ -697,10 +698,12 @@ type ProjectBoardColumnInput = {
   bodyBg?: string
 }
 
-function progressForStatus(status: string) {
-  if (status === "todo") return 0
-  if (status === "done") return 100
-  return 50
+function humanizeStatusLabel(status: string) {
+  return (status || "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (m) => m.toUpperCase())
 }
 
 export async function ensureProjectBoardColumns(projectId: string) {
@@ -715,15 +718,42 @@ export async function ensureProjectBoardColumns(projectId: string) {
   if (countError) throw countError
   if (count && count > 0) return
 
-  const defaults = [
-    { status: "todo", label: "To do", header_bg: "bg-gray-cool-25", body_bg: "bg-gray-cool-25", position: 0, progress: 0 },
-    { status: "in_progress", label: "In progress", header_bg: "bg-purple-25", body_bg: "bg-purple-25", position: 1, progress: 50 },
-    { status: "done", label: "Done", header_bg: "bg-success-25", body_bg: "bg-success-25", position: 2, progress: 100 },
+  const { data: taskRows, error: taskError } = await supabase
+    .from("tasks")
+    .select("status")
+    .eq("project_id", projectId)
+
+  if (taskError) throw taskError
+
+  const extraStatuses = Array.from(
+    new Set(
+      (taskRows ?? [])
+        .map((r) => (r.status ?? "").trim())
+        .filter((s) => s && s !== "todo" && s !== "in_progress" && s !== "done"),
+    ),
+  ).sort((a, b) => a.localeCompare(b))
+
+  const base = [
+    { status: "todo", label: "To do", header_bg: "bg-gray-cool-25", body_bg: "bg-gray-cool-25" },
+    { status: "in_progress", label: "In progress", header_bg: "bg-purple-25", body_bg: "bg-purple-25" },
+    ...extraStatuses.map((status) => ({
+      status,
+      label: humanizeStatusLabel(status) || status,
+      header_bg: "bg-gray-cool-25",
+      body_bg: "bg-gray-cool-25",
+    })),
+    { status: "done", label: "Done", header_bg: "bg-success-25", body_bg: "bg-success-25" },
   ]
 
-  const { error } = await supabase
-    .from("project_board_columns")
-    .insert(defaults.map((d) => ({ ...d, project_id: projectId })))
+  const total = base.length
+  const rows = base.map((c, index) => ({
+    ...c,
+    project_id: projectId,
+    position: index,
+    progress: computeColumnProgress(index, total),
+  }))
+
+  const { error } = await supabase.from("project_board_columns").insert(rows)
 
   if (error) throw error
 
@@ -782,7 +812,7 @@ export async function saveProjectBoardColumns(
     status: c.status,
     label: c.status === "todo" ? "To do" : c.status === "done" ? "Done" : c.label,
     position: index,
-    progress: progressForStatus(c.status),
+    progress: computeColumnProgress(index, ordered.length),
     header_bg: c.headerBg ?? "bg-gray-cool-25",
     body_bg: c.bodyBg ?? c.headerBg ?? "bg-gray-cool-25",
   }))
