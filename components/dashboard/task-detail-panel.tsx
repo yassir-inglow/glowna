@@ -170,7 +170,6 @@ export function TaskDetailPanel({ task, members, boardColumns, onTaskToggle, onT
             members={members}
             assignedIds={localAssignedIds}
             onAssignedIdsChange={(ids) => {
-              selfMutatedAssigneesRef.current = true
               setLocalAssignedIds(ids)
               onAssigneeChange?.(task.id, ids)
             }}

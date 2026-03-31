@@ -24,6 +24,7 @@ type KanbanColumnProps = {
   config: BoardColumnConfig
   tasks: TaskWithProject[]
   members: ProjectMember[]
+  isDragging?: boolean
   /** Disable layout animation for the card that just dropped. */
   suppressLayoutForId?: string | null
   onTaskSelect?: (taskId: string) => void
@@ -57,6 +58,7 @@ const KanbanColumn = React.memo(function KanbanColumn({
   config,
   tasks,
   members,
+  isDragging = false,
   suppressLayoutForId,
   onTaskSelect,
   selectedTaskId,
@@ -154,8 +156,8 @@ const KanbanColumn = React.memo(function KanbanColumn({
   return (
     <motion.div
       ref={setNodeRef}
-      layout
-      transition={{ layout: { type: "spring", damping: 28, stiffness: 260 } }}
+      layout={!isDragging}
+      transition={!isDragging ? { layout: { type: "spring", damping: 28, stiffness: 260 } } : undefined}
       className="group/column flex min-w-[360px] max-w-[420px] flex-1 self-stretch flex-col gap-3"
     >
 
@@ -243,8 +245,8 @@ const KanbanColumn = React.memo(function KanbanColumn({
 
       {/* ── Drop zone / card list ─────────────────────────────────────────── */}
       <motion.div
-        layout
-        transition={{ layout: { type: "spring", damping: 28, stiffness: 260 } }}
+        layout={!isDragging}
+        transition={!isDragging ? { layout: { type: "spring", damping: 28, stiffness: 260 } } : undefined}
         data-kanban-column-body
         data-kanban-column-id={id}
         className={cn(

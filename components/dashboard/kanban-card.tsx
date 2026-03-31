@@ -71,6 +71,21 @@ type KanbanCardProps = {
   isDragOverlay?: boolean
 }
 
+function toTransformString(
+  transform:
+    | {
+        x: number
+        y: number
+        scaleX: number
+        scaleY: number
+      }
+    | null
+    | undefined,
+) {
+  if (!transform) return undefined
+  return `translate3d(${transform.x}px, ${transform.y}px, 0) scaleX(${transform.scaleX}) scaleY(${transform.scaleY})`
+}
+
 // ─── Card ─────────────────────────────────────────────────────────────────────
 
 const KanbanCard = React.memo(function KanbanCard({
@@ -88,16 +103,20 @@ const KanbanCard = React.memo(function KanbanCard({
     attributes,
     listeners,
     setNodeRef,
+    transform,
+    transition,
     isDragging,
+    isSorting,
   } = useSortable({
     id: task.id,
     disabled: isDragOverlay,
   })
 
-  // Card stays in place — no transform, no transition.
-  // Keep the original card visible at 50% while dragging.
   const style: React.CSSProperties = {
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.35 : 1,
+    transform: isDragOverlay ? undefined : toTransformString(transform),
+    transition: isDragOverlay ? undefined : transition,
+    zIndex: isDragging ? 1 : undefined,
   }
 
   const didDragRef = React.useRef(false)
@@ -113,7 +132,7 @@ const KanbanCard = React.memo(function KanbanCard({
 
   const priorityConfig = getPriorityConfig(task.priority)
   const createdAt = formatCreatedAt(task.created_at)
-  const enableLayout = layoutEnabled && !isDragOverlay
+  const enableLayout = layoutEnabled && !isDragOverlay && !isSorting
 
   const assignedIds = React.useMemo(
     () => task.task_assignees.map((a) => a.profiles?.id).filter(Boolean) as string[],

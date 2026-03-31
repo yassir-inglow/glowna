@@ -640,6 +640,7 @@ export function KanbanBoard({
                 config={col}
                 tasks={localColumns[col.id] ?? []}
                 members={project.members}
+                isDragging={!!activeId || !!justDroppedId}
                 suppressLayoutForId={justDroppedId}
                 onTaskSelect={onTaskSelect}
                 selectedTaskId={selectedTaskId}
