@@ -5,6 +5,7 @@ import { getResendClient, getResendFromAddress } from "@/lib/resend"
 import { projectInviteEmail } from "@/lib/emails/project-invite"
 import { projectRemovedEmail } from "@/lib/emails/project-removed"
 import { computeColumnProgress } from "@/lib/board-columns"
+import { acceptInvitationForCurrentUser } from "@/lib/project-invitations"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { headers } from "next/headers"
@@ -541,31 +542,7 @@ export async function inviteToProject(
 export async function acceptInvitation(
   token: string,
 ): Promise<{ projectId?: string; error?: string }> {
-  const { supabase } = await requireUser()
-
-  // Use SECURITY DEFINER RPC to bypass RLS — the invited user isn't a
-  // project member yet, so normal inserts into project_members are blocked.
-  const { data, error } = await supabase.rpc("accept_project_invitation", {
-    p_token: token,
-  })
-
-  if (error) {
-    return { error: "Failed to join the project" }
-  }
-
-  const result = data as { project_id?: string; error?: string }
-
-  if (result.error) {
-    return { error: result.error }
-  }
-
-  if (result.project_id) {
-    revalidatePath("/")
-    revalidatePath(`/projects/${result.project_id}`)
-    return { projectId: result.project_id }
-  }
-
-  return { error: "Something went wrong" }
+  return acceptInvitationForCurrentUser(token)
 }
 
 export async function declineInvitation(

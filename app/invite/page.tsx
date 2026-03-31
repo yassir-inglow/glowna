@@ -1,6 +1,7 @@
+import Link from "next/link"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { acceptInvitation } from "@/app/actions"
+import { acceptInvitationForCurrentUser } from "@/lib/project-invitations"
 
 export default async function InviteAcceptPage({
   searchParams,
@@ -23,7 +24,7 @@ export default async function InviteAcceptPage({
     redirect(`/login?next=${encodedNext}`)
   }
 
-  const result = await acceptInvitation(token)
+  const result = await acceptInvitationForCurrentUser(token)
 
   if (result.projectId) {
     redirect(`/projects/${result.projectId}`)
@@ -38,12 +39,12 @@ export default async function InviteAcceptPage({
         <p className="text-center text-text-md font-medium text-text-placeholder">
           {result.error ?? "Something went wrong with this invitation."}
         </p>
-        <a
+        <Link
           href="/"
           className="text-text-sm font-medium text-text-brand transition-colors hover:opacity-80"
         >
           Go to dashboard
-        </a>
+        </Link>
       </div>
     </div>
   )
