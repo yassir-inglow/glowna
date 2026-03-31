@@ -83,12 +83,19 @@ export function ProjectHeader({
         <div className="flex items-center gap-2">
           {project.members.length > 0 && (
             <LayoutGroup>
-              <div className="flex items-center gap-2 opacity-50">
+              <motion.div layout className="flex items-center gap-2">
                 <AvatarGroup className="[&>[data-slot=avatar]]:-ml-1 [&>[data-slot=avatar]:first-child]:ml-0">
                   {[...activeMembers, ...inactiveMembers].slice(0, 3).map((member) => {
                     const isActive = activeUserIds.has(member.id)
                     return (
-                      <motion.div key={member.id} layoutId={`presence-${member.id}`} data-slot="avatar" className="inline-flex" transition={{ type: "spring", stiffness: 400, damping: 30 }}>
+                      <motion.div
+                        key={member.id}
+                        layout
+                        layoutId={`presence-${member.id}`}
+                        data-slot="avatar"
+                        className="inline-flex"
+                        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                      >
                         <Avatar size="xs" active={isActive} className="ring-offset-[1.5px] ring-offset-white">
                           {member.avatar_url ? (
                             <AvatarImage src={member.avatar_url} alt="" />
@@ -100,7 +107,7 @@ export function ProjectHeader({
                     )
                   })}
                 </AvatarGroup>
-              </div>
+              </motion.div>
             </LayoutGroup>
           )}
 
@@ -108,6 +115,7 @@ export function ProjectHeader({
             projectId={project.id}
             members={project.members}
             ownerId={project.user_id}
+            activeUserIds={activeUserIds}
             showIcon={false}
             className="h-7 border border-gray-cool-100 bg-alpha-900 px-3 py-1 text-text-sm text-gray-cool-500 hover:bg-alpha-800"
           />
@@ -189,4 +197,3 @@ export function ProjectHeader({
     </div>
   )
 }
-
