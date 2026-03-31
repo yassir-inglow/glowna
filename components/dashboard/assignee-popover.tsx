@@ -182,7 +182,13 @@ export function AssigneePopover({
       <PopoverTrigger asChild>
         {children}
       </PopoverTrigger>
-      <PopoverContent side="bottom" align="end">
+      <PopoverContent
+        side="bottom"
+        align="end"
+        data-kanban-interactive=""
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+      >
         <AssigneePicker
           taskId={taskId}
           members={members}

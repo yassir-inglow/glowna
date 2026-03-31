@@ -50,10 +50,10 @@ function normalizeFixed(next: BoardColumnConfig[], fallback: BoardColumnConfig[]
   const middle = next.filter((c) => c.id !== "todo" && c.id !== "done")
 
   const fixedTodo = todo
-    ? { ...todo, label: "To do" }
+    ? { ...todo, label: todo.label?.trim() || "To do" }
     : { id: "todo", label: "To do", headerBg: "bg-gray-cool-25", bodyBg: "bg-gray-cool-25", progress: 0 }
   const fixedDone = done
-    ? { ...done, label: "Done" }
+    ? { ...done, label: done.label?.trim() || "Done" }
     : { id: "done", label: "Done", headerBg: "bg-success-25", bodyBg: "bg-success-25", progress: 100 }
 
   const ordered = [fixedTodo, ...middle, fixedDone]

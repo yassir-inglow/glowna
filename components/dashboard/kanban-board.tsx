@@ -11,6 +11,7 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
+  type Collision,
   type CollisionDetection,
   type DragStartEvent,
   type DragOverEvent,
@@ -20,7 +21,7 @@ import { LayoutGroup } from "motion/react"
 
 import { KanbanColumn } from "@/components/dashboard/kanban-column"
 import { KanbanCard } from "@/components/dashboard/kanban-card"
-import { reorderTasksInColumn as reorderAction } from "@/app/actions"
+import { createTask, reorderTasksInColumn as reorderAction } from "@/app/actions"
 import { markMutation } from "@/hooks/mutation-tracker"
 import { humanizeStatus, type BoardColumnConfig } from "@/hooks/use-project-board-columns"
 import { computeColumnProgress } from "@/lib/board-columns"
@@ -73,6 +74,29 @@ function computeInsertedPosition(
   return { pos, needsReindex: false }
 }
 
+function getBeforeIdFromColumnPointer(columnId: string, pointerY: number): string | null {
+  if (typeof document === "undefined") return null
+
+  const columnBody = document.querySelector<HTMLElement>(
+    `[data-kanban-column-id="${columnId}"]`,
+  )
+  if (!columnBody) return null
+
+  const slots = Array.from(
+    columnBody.querySelectorAll<HTMLElement>("[data-kanban-card-slot][data-task-id]"),
+  )
+
+  for (const slot of slots) {
+    const taskId = slot.dataset.taskId
+    if (!taskId) continue
+    const rect = slot.getBoundingClientRect()
+    const centerY = rect.top + rect.height / 2
+    if (pointerY < centerY) return taskId
+  }
+
+  return null
+}
+
 /** Compute indicator position. Returns null when the drag would be a no-op. */
 function computeIndicator(
   activeId: string,
@@ -84,20 +108,26 @@ function computeIndicator(
   overRect: { top: number; height: number } | null,
 ): DropIndicator | null {
   if (!over || (over.id as string) === activeId) return null
+  const activeColumn = findContainerIn(cols, activeId)
+  const pointerCenterY = activeInitialRect
+    ? activeInitialRect.top + delta.y + activeInitialRect.height / 2
+    : null
 
   // Hovering over empty area of a column
   if (columnOrder.includes(over.id as string)) {
     const column = over.id as string
-    // No-op: active is already last in this column
     const colTasks = cols[column] ?? []
-    const activeColumn = findContainerIn(cols, activeId)
-    if (
-      activeColumn === column &&
-      colTasks.length > 0 &&
-      colTasks[colTasks.length - 1].id === activeId
-    )
-      return null
-    return { column, beforeId: null }
+    const beforeId =
+      pointerCenterY == null ? null : getBeforeIdFromColumnPointer(column, pointerCenterY)
+
+    if (activeColumn === column) {
+      const activeIndex = colTasks.findIndex((task) => task.id === activeId)
+      if (beforeId === null && colTasks[colTasks.length - 1]?.id === activeId) return null
+      if (beforeId === activeId) return null
+      if (beforeId && activeIndex >= 0 && colTasks[activeIndex + 1]?.id === beforeId) return null
+    }
+
+    return { column, beforeId }
   }
 
   // Hovering over a card
@@ -108,34 +138,34 @@ function computeIndicator(
   const overIndex = colTasks.findIndex((t) => t.id === over.id)
   if (overIndex === -1) return null
 
-  // For the LAST card in a column, check top/bottom half of the card.
-  // If the pointer is in the bottom half → insert at end instead of before it.
-  if (overIndex === colTasks.length - 1 && activeInitialRect && overRect) {
-    const pointerCenterY = activeInitialRect.top + delta.y + activeInitialRect.height / 2
+  const activeIndex =
+    activeColumn === overColumn ? colTasks.findIndex((t) => t.id === activeId) : -1
+
+  if (pointerCenterY != null && overRect) {
     const overCenterY = overRect.top + overRect.height / 2
-    if (pointerCenterY > overCenterY) {
-      // Same-column no-op: active is already last
-      const activeColumn = findContainerIn(cols, activeId)
-      if (activeColumn === overColumn && colTasks[colTasks.length - 1].id === activeId)
-        return null
-      return { column: overColumn, beforeId: null }
+    const insertAfter = pointerCenterY > overCenterY
+
+    if (insertAfter) {
+      const nextCard = colTasks[overIndex + 1] ?? null
+
+      if (activeColumn === overColumn) {
+        if (nextCard?.id === activeId) return null
+        if (!nextCard && colTasks[colTasks.length - 1]?.id === activeId) return null
+      }
+
+      return {
+        column: overColumn,
+        beforeId: nextCard ? nextCard.id : null,
+      }
     }
   }
 
   // Same-column no-op: inserting before the card that's already right after active
-  const activeColumn = findContainerIn(cols, activeId)
   if (activeColumn === overColumn) {
-    const activeIndex = colTasks.findIndex((t) => t.id === activeId)
     if (overIndex === activeIndex + 1 || overIndex === activeIndex) return null
   }
 
   return { column: overColumn, beforeId: over.id as string }
-}
-
-// ─── Custom collision detection ──────────────────────────────────────────────
-const kanbanCollision: CollisionDetection = (args) => {
-  const hits = pointerWithin(args)
-  return hits.length > 0 ? hits : rectIntersection(args)
 }
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -144,12 +174,15 @@ type KanbanBoardProps = {
   tasks: TaskWithProject[]
   project: ProjectWithMembers
   columns: BoardColumnConfig[]
+  onSaveColumns?: (next: BoardColumnConfig[]) => Promise<void> | void
   onTaskToggle?: (taskId: string, completed: boolean) => Promise<void>
   onTaskCreated?: () => void
   onDeleteTask?: (taskId: string) => void
   onTaskSelect?: (taskId: string) => void
   selectedTaskId?: string | null
   onTaskPriorityChange?: (taskId: string, priority: Priority) => void
+  onTaskDateChange?: (taskId: string, dueDate: string | null, dueDateEnd: string | null) => void
+  onTaskAssigneeChange?: (taskId: string, assignedIds: string[]) => void
   onTaskStatusChange?: (taskId: string, status: string) => void
   onTaskReorder?: (
     updates: { id: string; status: string; board_position: number }[],
@@ -162,13 +195,22 @@ export function KanbanBoard({
   tasks,
   project,
   columns: columnsConfig,
-  onTaskToggle,
+  onSaveColumns,
+  onTaskCreated,
   onTaskSelect,
   selectedTaskId,
   onTaskPriorityChange,
+  onTaskDateChange,
+  onTaskAssigneeChange,
   onTaskStatusChange,
   onTaskReorder,
 }: KanbanBoardProps) {
+  const scrollRef = React.useRef<HTMLDivElement | null>(null)
+  const [isPanning, setIsPanning] = React.useState(false)
+  const panStartXRef = React.useRef(0)
+  const panStartScrollLeftRef = React.useRef(0)
+  const isPanningRef = React.useRef(false)
+
   const effectiveColumnsConfig = React.useMemo(() => {
     const existing = new Set(columnsConfig.map((c) => c.id))
     const unknown: BoardColumnConfig[] = []
@@ -211,6 +253,37 @@ export function KanbanBoard({
     [effectiveColumnsConfig],
   )
 
+  const handleRenameColumn = React.useCallback(
+    async (columnId: string, label: string) => {
+      if (!onSaveColumns) return
+      const trimmed = label.trim()
+      if (!trimmed) return
+
+      const nextColumns = effectiveColumnsConfig.map((column) =>
+        column.id === columnId ? { ...column, label: trimmed } : column,
+      )
+
+      await onSaveColumns(nextColumns)
+    },
+    [effectiveColumnsConfig, onSaveColumns],
+  )
+
+  const kanbanCollision = React.useCallback<CollisionDetection>(
+    (args) => {
+      const preferCards = (hits: Collision[]) => {
+        const cardHits = hits.filter((hit) => !columnOrder.includes(hit.id as string))
+        return cardHits.length > 0 ? cardHits : hits
+      }
+
+      const pointerHits = pointerWithin(args)
+      if (pointerHits.length > 0) return preferCards(pointerHits)
+
+      const rectHits = rectIntersection(args)
+      return rectHits.length > 0 ? preferCards(rectHits) : rectHits
+    },
+    [columnOrder],
+  )
+
   // Group tasks by status, sorted by board_position
   const columns = React.useMemo(() => {
     const grouped: Columns = {}
@@ -231,8 +304,24 @@ export function KanbanBoard({
   const [dropIndicator, setDropIndicator] = React.useState<DropIndicator | null>(null)
   const [justDroppedId, setJustDroppedId] = React.useState<string | null>(null)
 
-  // Ref mirrors localColumns so we can read the latest value synchronously.
-  const colsRef = React.useRef(localColumns)
+  const handleAddTask = React.useCallback(
+    async (status: string, title: string) => {
+      const trimmed = title.trim()
+      if (!trimmed) return
+
+      const columnTasks = localColumns[status] ?? []
+      const lastTask = columnTasks[columnTasks.length - 1]
+      const boardPosition =
+        lastTask && Number.isFinite(lastTask.board_position)
+          ? lastTask.board_position + BOARD_POSITION_GAP
+          : BOARD_POSITION_GAP
+
+      markMutation("tasks")
+      await createTask(project.id, trimmed, { status, boardPosition })
+      onTaskCreated?.()
+    },
+    [localColumns, onTaskCreated, project.id],
+  )
 
   // Ref mirrors dropIndicator for synchronous reads in handleDragEnd.
   const indicatorRef = React.useRef<DropIndicator | null>(null)
@@ -240,7 +329,6 @@ export function KanbanBoard({
   // Sync from parent (real-time updates).
   React.useEffect(() => {
     if (!activeId) {
-      colsRef.current = columns
       setLocalColumns(columns)
     }
   }, [columns, activeId])
@@ -304,7 +392,7 @@ export function KanbanBoard({
     const ind = computeIndicator(
       activeId,
       event.over,
-      colsRef.current,
+      localColumns,
       columnOrder,
       event.delta,
       initialRect ? { top: initialRect.top, height: initialRect.height } : null,
@@ -331,7 +419,7 @@ export function KanbanBoard({
       indicatorRef.current = computeIndicator(
         activeId,
         pendingEv.over,
-        colsRef.current,
+        localColumns,
         columnOrder,
         pendingEv.delta,
         initialRect ? { top: initialRect.top, height: initialRect.height } : null,
@@ -349,7 +437,7 @@ export function KanbanBoard({
     if (!indicator) return
 
     // ── Compute the new column layout ──────────────────────────────────
-    const cols = colsRef.current
+    const cols = localColumns
     const sourceColumn = findContainerIn(cols, draggedId)
     if (!sourceColumn) return
 
@@ -410,7 +498,6 @@ export function KanbanBoard({
     }
 
     // Persist
-    colsRef.current = next
     setLocalColumns(next)
     setJustDroppedId(draggedId)
 
@@ -467,48 +554,112 @@ export function KanbanBoard({
     setDropIndicator(null)
   }
 
-  return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={kanbanCollision}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
-      onDragCancel={handleDragCancel}
-    >
-      <LayoutGroup>
-        <div className="flex h-full gap-4 overflow-x-auto pb-4 scrollbar-hidden">
-          {effectiveColumnsConfig.map((col) => (
-            <KanbanColumn
-              key={col.id}
-              id={col.id}
-              config={col}
-              tasks={localColumns[col.id] ?? []}
-              members={project.members}
-              suppressLayoutForId={justDroppedId}
-              onTaskSelect={onTaskSelect}
-              selectedTaskId={selectedTaskId}
-              onTaskCompletedChange={(taskId, completed) => onTaskToggle?.(taskId, completed)}
-              onTaskPriorityChange={onTaskPriorityChange}
-              dropIndicatorBeforeId={
-                dropIndicator?.column === col.id ? dropIndicator.beforeId : undefined
-              }
-            />
-          ))}
-        </div>
-      </LayoutGroup>
+  React.useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
 
-      <DragOverlay
-        dropAnimation={null}
+    const onWheel = (event: WheelEvent) => {
+      if (event.defaultPrevented) return
+      if (event.shiftKey) return
+      if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) return
+      if (event.deltaY === 0) return
+
+      const target = event.target as HTMLElement | null
+      const columnBody = target?.closest?.("[data-kanban-column-body]") as HTMLElement | null
+      if (columnBody && columnBody.scrollHeight > columnBody.clientHeight) return
+
+      el.scrollLeft += event.deltaY
+      event.preventDefault()
+    }
+
+    el.addEventListener("wheel", onWheel, { passive: false })
+    return () => el.removeEventListener("wheel", onWheel)
+  }, [])
+
+  function handlePanStart(e: React.PointerEvent<HTMLDivElement>) {
+    if (activeId) return
+    if (e.button !== 0) return
+    if (!scrollRef.current) return
+
+    const target = e.target as HTMLElement | null
+    if (
+      target?.closest?.(
+        "[data-kanban-card],button,a,input,textarea,select,[role='button']",
+      )
+    )
+      return
+
+    isPanningRef.current = true
+    setIsPanning(true)
+    panStartXRef.current = e.clientX
+    panStartScrollLeftRef.current = scrollRef.current.scrollLeft
+    scrollRef.current.setPointerCapture(e.pointerId)
+  }
+
+  function handlePanMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!isPanningRef.current) return
+    if (!scrollRef.current) return
+    const deltaX = e.clientX - panStartXRef.current
+    scrollRef.current.scrollLeft = panStartScrollLeftRef.current - deltaX
+    e.preventDefault()
+  }
+
+  function handlePanEnd(e: React.PointerEvent<HTMLDivElement>) {
+    if (!isPanningRef.current) return
+    isPanningRef.current = false
+    setIsPanning(false)
+    scrollRef.current?.releasePointerCapture?.(e.pointerId)
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <DndContext
+        sensors={sensors}
+        collisionDetection={kanbanCollision}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
       >
-        {activeTask && (
-          <KanbanCard
-            task={activeTask}
-            members={project.members}
-            isDragOverlay
-          />
-        )}
-      </DragOverlay>
-    </DndContext>
+        <LayoutGroup>
+          <div
+            ref={scrollRef}
+            className={[
+              "flex min-h-0 flex-1 items-start gap-4 overflow-x-auto overflow-y-hidden pb-4 scrollbar-hidden",
+              isPanning ? "cursor-grabbing select-none" : "cursor-default",
+            ].join(" ")}
+            onPointerDown={handlePanStart}
+            onPointerMove={handlePanMove}
+            onPointerUp={handlePanEnd}
+            onPointerCancel={handlePanEnd}
+          >
+            {effectiveColumnsConfig.map((col) => (
+              <KanbanColumn
+                key={col.id}
+                id={col.id}
+                config={col}
+                tasks={localColumns[col.id] ?? []}
+                members={project.members}
+                suppressLayoutForId={justDroppedId}
+                onTaskSelect={onTaskSelect}
+                selectedTaskId={selectedTaskId}
+                onTaskPriorityChange={onTaskPriorityChange}
+                onTaskDateChange={onTaskDateChange}
+                onTaskAssigneeChange={onTaskAssigneeChange}
+                onAddTask={handleAddTask}
+                onRenameColumn={handleRenameColumn}
+                dropIndicatorBeforeId={
+                  dropIndicator?.column === col.id ? dropIndicator.beforeId : undefined
+                }
+              />
+            ))}
+          </div>
+        </LayoutGroup>
+
+        <DragOverlay dropAnimation={null}>
+          {activeTask && <KanbanCard task={activeTask} members={project.members} isDragOverlay />}
+        </DragOverlay>
+      </DndContext>
+    </div>
   )
 }

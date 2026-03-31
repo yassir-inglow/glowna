@@ -120,9 +120,19 @@ function normalizeOrder(cols: BoardColumnConfig[]) {
   const middle = cols.filter((c) => c.id !== "todo" && c.id !== "done")
 
   const ordered: BoardColumnConfig[] = [
-    todo ? { ...todo, label: "To do" } : FALLBACK_COLUMNS[0],
+    todo
+      ? {
+          ...todo,
+          label: todo.label?.trim() || "To do",
+        }
+      : FALLBACK_COLUMNS[0],
     ...middle,
-    done ? { ...done, label: "Done" } : FALLBACK_COLUMNS[FALLBACK_COLUMNS.length - 1],
+    done
+      ? {
+          ...done,
+          label: done.label?.trim() || "Done",
+        }
+      : FALLBACK_COLUMNS[FALLBACK_COLUMNS.length - 1],
   ]
 
   const total = ordered.length

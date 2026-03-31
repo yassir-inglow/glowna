@@ -402,6 +402,7 @@ export function ProjectDrawer({ projects, projectId, onClose }: ProjectDrawerPro
                   onTaskSelect={setSelectedTaskId}
                   selectedTaskId={selectedTaskId}
                   onTaskPriorityChange={handleTaskPriorityChange}
+                  onTaskAssigneeChange={handleTaskAssigneeChange}
                   onTaskStatusChange={handleTaskStatusChange}
                   onTaskReorder={handleTaskReorder}
                   onTaskDateChange={handleTaskDateChange}
@@ -415,7 +416,7 @@ export function ProjectDrawer({ projects, projectId, onClose }: ProjectDrawerPro
           <AnimatePresence>
             {selectedTask && project && (
               <TaskDetailPanel
-                key="task-panel"
+                key={selectedTask.id}
                 task={selectedTask}
                 members={project.members}
                 boardColumns={boardColumns}

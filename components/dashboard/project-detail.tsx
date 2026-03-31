@@ -43,6 +43,8 @@ type ProjectDetailProps = {
   selectedTaskId?: string | null
   /** Called when a task's priority changes (for optimistic sync in the drawer). */
   onTaskPriorityChange?: (taskId: string, priority: Priority) => void
+  /** Called when a task's assignees change (for optimistic sync in the drawer). */
+  onTaskAssigneeChange?: (taskId: string, assignedIds: string[]) => void
   /** Called when a task's status changes (board drag-and-drop). */
   onTaskStatusChange?: (taskId: string, status: string) => void
   /** Called when tasks are reordered on the board. */
@@ -51,13 +53,17 @@ type ProjectDetailProps = {
   onTaskDateChange?: (taskId: string, dueDate: string | null, dueDateEnd: string | null) => void
 }
 
-export function ProjectDetail({ project, tasks, boardColumns: boardColumnsProp, onSaveBoardColumns, onDeleteTask, onTaskToggle, onTaskCreated, enableRealtimeRefresh = true, onTaskSelect, selectedTaskId, onTaskPriorityChange, onTaskStatusChange, onTaskReorder, onTaskDateChange }: ProjectDetailProps) {
+export function ProjectDetail({ project, tasks, boardColumns: boardColumnsProp, onSaveBoardColumns, onDeleteTask, onTaskToggle, onTaskCreated, enableRealtimeRefresh = true, onTaskSelect, selectedTaskId, onTaskPriorityChange, onTaskAssigneeChange, onTaskStatusChange, onTaskReorder, onTaskDateChange }: ProjectDetailProps) {
   const [activeView, setActiveView] = React.useState<ProjectView>("overview")
   const [focusNewTask, setFocusNewTask] = React.useState(false)
   const newTaskInputRef = React.useRef<HTMLInputElement>(null)
-  const [pendingPatches, setPendingPatches] = React.useState<
-    Map<string, Partial<Pick<TaskWithProject, "status" | "board_position" | "priority" | "completed">>>
-  >(() => new Map())
+  type TaskPatch = Partial<
+    Pick<
+      TaskWithProject,
+      "status" | "board_position" | "priority" | "completed" | "due_date" | "due_date_end" | "task_assignees"
+    >
+  >
+  const [pendingPatches, setPendingPatches] = React.useState<Map<string, TaskPatch>>(() => new Map())
   const [pendingDeletes, setPendingDeletes] = React.useState<Set<string>>(() => new Set())
   const [saveStatus, setSaveStatus] = React.useState<"idle" | "saving" | "delayed" | "error">("idle")
   const [lastFailedUpdates, setLastFailedUpdates] = React.useState<
@@ -80,6 +86,19 @@ export function ProjectDetail({ project, tasks, boardColumns: boardColumnsProp, 
         return patch ? { ...t, ...patch } : t
       })
   }, [tasks, pendingDeletes, pendingPatches])
+
+  const assignedIdsFromAssignees = React.useCallback(
+    (assignees: TaskWithProject["task_assignees"]) =>
+      assignees.map((a) => a.profiles?.id).filter(Boolean) as string[],
+    [],
+  )
+
+  const equalIdSets = React.useCallback((a: string[], b: string[]) => {
+    if (a.length !== b.length) return false
+    const setA = new Set(a)
+    for (const id of b) if (!setA.has(id)) return false
+    return true
+  }, [])
 
   React.useEffect(() => {
     return () => {
@@ -143,6 +162,13 @@ export function ProjectDetail({ project, tasks, boardColumns: boardColumnsProp, 
       if (patch.board_position !== undefined && task.board_position !== patch.board_position) matches = false
       if (patch.priority !== undefined && task.priority !== patch.priority) matches = false
       if (patch.completed !== undefined && task.completed !== patch.completed) matches = false
+      if (patch.due_date !== undefined && task.due_date !== patch.due_date) matches = false
+      if (patch.due_date_end !== undefined && task.due_date_end !== patch.due_date_end) matches = false
+      if (patch.task_assignees !== undefined) {
+        const taskIds = assignedIdsFromAssignees(task.task_assignees)
+        const patchIds = assignedIdsFromAssignees(patch.task_assignees)
+        if (!equalIdSets(taskIds, patchIds)) matches = false
+      }
 
       if (matches) {
         if (nextPatches === pendingPatches) nextPatches = new Map(pendingPatches)
@@ -161,21 +187,18 @@ export function ProjectDetail({ project, tasks, boardColumns: boardColumnsProp, 
     if (finalPatches.size === 0 && finalDeletes.size === 0) {
       finishSave()
     }
-  }, [pendingDeletes, pendingPatches, saveStatus, tasksById, finishSave])
+  }, [assignedIdsFromAssignees, equalIdSets, finishSave, pendingDeletes, pendingPatches, saveStatus, tasksById])
 
   React.useEffect(() => () => clearSaveTimer(), [clearSaveTimer])
 
-  const queuePatch = React.useCallback(
-    (taskId: string, patch: Partial<Pick<TaskWithProject, "status" | "board_position" | "priority" | "completed">>) => {
-      setPendingPatches((prev) => {
-        const next = new Map(prev)
-        const existing = next.get(taskId) ?? {}
-        next.set(taskId, { ...existing, ...patch })
-        return next
-      })
-    },
-    [],
-  )
+  const queuePatch = React.useCallback((taskId: string, patch: TaskPatch) => {
+    setPendingPatches((prev) => {
+      const next = new Map(prev)
+      const existing = next.get(taskId) ?? {}
+      next.set(taskId, { ...existing, ...patch })
+      return next
+    })
+  }, [])
 
   const queueDelete = React.useCallback((taskId: string) => {
     setPendingDeletes((prev) => {
@@ -225,6 +248,35 @@ export function ProjectDetail({ project, tasks, boardColumns: boardColumnsProp, 
       onTaskPriorityChange?.(taskId, priority)
     },
     [queuePatch, beginSave, onTaskPriorityChange],
+  )
+
+  const handleOptimisticDateChange = React.useCallback(
+    (taskId: string, dueDate: string | null, dueDateEnd: string | null) => {
+      React.startTransition(() => {
+        queuePatch(taskId, { due_date: dueDate, due_date_end: dueDateEnd })
+      })
+      beginSave()
+      onTaskDateChange?.(taskId, dueDate, dueDateEnd)
+    },
+    [queuePatch, beginSave, onTaskDateChange],
+  )
+
+  const handleOptimisticAssigneeChange = React.useCallback(
+    (taskId: string, assignedIds: string[]) => {
+      const newAssignees: TaskWithProject["task_assignees"] = assignedIds
+        .map((pid) => project.members.find((m) => m.id === pid))
+        .filter(Boolean)
+        .map((m) => ({
+          profiles: { id: m!.id, full_name: m!.full_name, email: m!.email, avatar_url: m!.avatar_url },
+        }))
+
+      React.startTransition(() => {
+        queuePatch(taskId, { task_assignees: newAssignees })
+      })
+      beginSave()
+      onTaskAssigneeChange?.(taskId, assignedIds)
+    },
+    [queuePatch, beginSave, onTaskAssigneeChange, project.members],
   )
 
   const handleOptimisticReorder = React.useCallback(
@@ -287,7 +339,7 @@ export function ProjectDetail({ project, tasks, boardColumns: boardColumnsProp, 
         }}
       />
 
-      <div className="mt-6 flex flex-col gap-6">
+      <div className="mt-6 flex min-h-0 flex-1 flex-col gap-6">
       {saveStatus !== "idle" && (
         <div className="flex items-center justify-end gap-2 text-text-xs text-gray-cool-500">
           <span>
@@ -312,12 +364,15 @@ export function ProjectDetail({ project, tasks, boardColumns: boardColumnsProp, 
           tasks={displayTasks}
           project={project}
           columns={boardColumns}
+          onSaveColumns={saveBoardColumns}
           onTaskToggle={onTaskToggle}
           onTaskCreated={onTaskCreated}
           onDeleteTask={(taskId) => { handleOptimisticDelete(taskId); onDeleteTask?.(taskId) }}
           onTaskSelect={onTaskSelect}
           selectedTaskId={selectedTaskId}
           onTaskPriorityChange={handleOptimisticPriorityChange}
+          onTaskDateChange={handleOptimisticDateChange}
+          onTaskAssigneeChange={handleOptimisticAssigneeChange}
           onTaskStatusChange={handleOptimisticStatusChange}
           onTaskReorder={handleOptimisticReorder}
         />
@@ -364,6 +419,7 @@ export function ProjectDetail({ project, tasks, boardColumns: boardColumnsProp, 
                 initialDueDate={task.due_date}
                 initialDueDateEnd={task.due_date_end}
                 priority={(task.priority ?? "none") as Priority}
+                onDateChange={handleOptimisticDateChange ? (dueDate, dueDateEnd) => handleOptimisticDateChange(task.id, dueDate, dueDateEnd) : undefined}
                 onPriorityChange={handleOptimisticPriorityChange ? (p) => handleOptimisticPriorityChange(task.id, p) : undefined}
                 onSelect={onTaskSelect ? () => onTaskSelect(task.id) : undefined}
               />

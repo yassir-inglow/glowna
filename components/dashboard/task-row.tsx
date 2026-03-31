@@ -12,22 +12,19 @@ import {
   Calendar03Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarAvvvatars, AvatarGroup, AvatarImage, AvatarSkeleton } from "@/components/ui/avatar"
-import type { DateRange } from "react-day-picker"
 
 import { Button } from "@/components/ui/button"
-import { Calendar, RangeCalendar } from "@/components/ui/calendar"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Switch } from "@/components/ui/switch"
 import { AssigneePopover } from "@/components/dashboard/assignee-popover"
 import { PriorityPopover, PriorityButton } from "@/components/dashboard/priority-picker"
 import type { Priority } from "@/components/dashboard/priority-picker"
-import { toggleTaskCompleted, updateTaskDates } from "@/app/actions"
-import { markMutation, hasRecentLocalMutation } from "@/hooks/mutation-tracker"
+import { TaskDatePopover, formatTaskDateLabel } from "@/components/dashboard/task-date-popover"
+import { toggleTaskCompleted } from "@/app/actions"
+import { markMutation } from "@/hooks/mutation-tracker"
 import type { ProjectMember } from "@/lib/data"
 
 function initials(name: string | null | undefined): string {
@@ -133,6 +130,8 @@ export type TaskRowProps = {
   priority?: Priority
   /** Callback when priority is changed. */
   onPriorityChange?: (priority: Priority) => void
+  /** Callback when due date is changed. */
+  onDateChange?: (dueDate: string | null, dueDateEnd: string | null) => void
   /** Called when the row itself is clicked (not interactive children). */
   onSelect?: () => void
 }
@@ -159,68 +158,16 @@ export function TaskRow({
   initialDueDateEnd,
   priority = "none",
   onPriorityChange,
+  onDateChange,
   onSelect,
 }: TaskRowProps) {
   const [, startTransition] = useTransition()
   const [optimisticCompleted, setOptimisticCompleted] = useOptimistic(completed)
   const [contextOpen, setContextOpen] = useState(false)
-  const [calendarOpen, setCalendarOpen] = useState(false)
-  const [rangeMode, setRangeMode] = useState(!!initialDueDateEnd)
-  const [dueDate, setDueDate] = useState<Date | undefined>(() => {
-    if (initialDueDate && !initialDueDateEnd) return new Date(initialDueDate + "T00:00:00")
-    return undefined
-  })
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
-    if (initialDueDate && initialDueDateEnd) {
-      return {
-        from: new Date(initialDueDate + "T00:00:00"),
-        to: new Date(initialDueDateEnd + "T00:00:00"),
-      }
-    }
-    return undefined
-  })
   const rowRef = useRef<HTMLDivElement>(null)
-  const prevDueDateProp = useRef(initialDueDate)
-  const prevDueDateEndProp = useRef(initialDueDateEnd)
-
-  useEffect(() => {
-    if (prevDueDateProp.current === initialDueDate && prevDueDateEndProp.current === initialDueDateEnd) return
-    prevDueDateProp.current = initialDueDate
-    prevDueDateEndProp.current = initialDueDateEnd
-
-    if (initialDueDate && initialDueDateEnd) {
-      setRangeMode(true)
-      setDueDate(undefined)
-      setDateRange({
-        from: new Date(initialDueDate + "T00:00:00"),
-        to: new Date(initialDueDateEnd + "T00:00:00"),
-      })
-    } else if (initialDueDate) {
-      setRangeMode(false)
-      setDueDate(new Date(initialDueDate + "T00:00:00"))
-      setDateRange(undefined)
-    } else {
-      setRangeMode(false)
-      setDueDate(undefined)
-      setDateRange(undefined)
-    }
-  }, [initialDueDate, initialDueDateEnd])
 
   // ── Local assignee state (optimistic + synced from parent for realtime) ─────
-  const [localAssignedIds, setLocalAssignedIds] = useState<string[]>(assignedIds ?? [])
-  const prevAssignedRef = useRef(assignedIds)
-  const selfMutatedRef = useRef(false)
-
-  useEffect(() => {
-    const prev = prevAssignedRef.current ?? []
-    const next = assignedIds ?? []
-    prevAssignedRef.current = assignedIds
-
-    if (prev.length === next.length && prev.every((id, i) => id === next[i])) return
-    if (selfMutatedRef.current && hasRecentLocalMutation("task_assignees")) return
-    selfMutatedRef.current = false
-    setLocalAssignedIds(next)
-  }, [assignedIds])
+  const [localAssignedIds, setLocalAssignedIds] = useOptimistic(assignedIds ?? [])
 
   const displayAvatars = useMemo<TaskRowAvatar[]>(() => {
     if (!members?.length) return avatars
@@ -233,10 +180,6 @@ export function TaskRow({
         value: m.full_name ?? m.email ?? undefined,
       }))
   }, [localAssignedIds, members, avatars])
-
-  function formatDateForDb(date: Date): string {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
-  }
 
   useEffect(() => {
     if (!contextOpen) return
@@ -322,7 +265,7 @@ export function TaskRow({
           </span>
         </div>
 
-        {(showAddons || dueDate || dateRange?.from || priority !== "none") && (
+        {(showAddons || initialDueDate || initialDueDateEnd || priority !== "none") && (
         <div className="flex items-center pl-[22px]">
           {showAddons && (
             <>
@@ -353,126 +296,25 @@ export function TaskRow({
             </PriorityPopover>
           )}
 
-          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-            <PopoverTrigger asChild>
+          {id && (
+            <TaskDatePopover
+              taskId={id}
+              dueDate={initialDueDate}
+              dueDateEnd={initialDueDateEnd}
+              onDateChange={onDateChange}
+              side="bottom"
+              align="start"
+              stopPropagation
+            >
+              <span data-slot="popover-trigger">
               <Button variant="ghost" size="xxs" leadingIcon={Calendar03Icon}>
-                {rangeMode && dateRange?.from
-                  ? `${dateRange.from.toLocaleDateString("en-US", { month: "short", day: "numeric" })}${dateRange.to ? ` – ${dateRange.to.toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}`
-                  : dueDate
-                    ? dueDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                    : "Date"}
+                {formatTaskDateLabel(initialDueDate, initialDueDateEnd)}
               </Button>
-            </PopoverTrigger>
-            <PopoverContent side="bottom" onClick={(e) => e.stopPropagation()}>
-                {rangeMode ? (
-                  <RangeCalendar
-                    selected={dateRange}
-                    onSelect={(range) => {
-                      const prev = dateRange
-                      setDateRange(range)
-                      if (id && range?.from) {
-                        const from = formatDateForDb(range.from)
-                        const to = range.to ? formatDateForDb(range.to) : null
-                        markMutation("tasks")
-                        startTransition(async () => {
-                          try {
-                            await updateTaskDates(id, from, to)
-                          } catch {
-                            setDateRange(prev)
-                          }
-                        })
-                      }
-                    }}
-                  />
-                ) : (
-                  <Calendar
-                    mode="single"
-                    selected={dueDate}
-                    onSelect={(date) => {
-                      const prev = dueDate
-                      setDueDate(date)
-                      setCalendarOpen(false)
-                      if (id) {
-                        const val = date ? formatDateForDb(date) : null
-                        markMutation("tasks")
-                        startTransition(async () => {
-                          try {
-                            await updateTaskDates(id, val, null)
-                          } catch {
-                            setDueDate(prev)
-                          }
-                        })
-                      }
-                    }}
-                  />
-                )}
-
-                <div className="flex flex-col border-t border-gray-cool-100">
-                  <div className="px-3 py-2.5">
-                    <Switch
-                      label="Add an end date"
-                      checked={rangeMode}
-                      onCheckedChange={(checked) => {
-                        if (rangeMode) {
-                          const prevRange = dateRange
-                          setDateRange(undefined)
-                          if (id) {
-                            markMutation("tasks")
-                            startTransition(async () => {
-                              try {
-                                await updateTaskDates(id, dueDate ? formatDateForDb(dueDate) : null, null)
-                              } catch {
-                                setDateRange(prevRange)
-                                setRangeMode(true)
-                                return
-                              }
-                            })
-                          }
-                        } else if (dueDate) {
-                          setDateRange({ from: dueDate, to: undefined })
-                          setDueDate(undefined)
-                        }
-                        setRangeMode(!rangeMode)
-                      }}
-                    />
-                  </div>
-
-                  {(dueDate || dateRange?.from) && (
-                    <div className="border-t border-gray-cool-100 p-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const prevDate = dueDate
-                          const prevRange = dateRange
-                          const prevRangeMode = rangeMode
-                          setDueDate(undefined)
-                          setDateRange(undefined)
-                          setRangeMode(false)
-                          setCalendarOpen(false)
-                          if (id) {
-                            markMutation("tasks")
-                            startTransition(async () => {
-                              try {
-                                await updateTaskDates(id, null, null)
-                              } catch {
-                                setDueDate(prevDate)
-                                setDateRange(prevRange)
-                                setRangeMode(prevRangeMode)
-                              }
-                            })
-                          }
-                        }}
-                        className="w-full rounded-full py-2 text-center text-text-sm font-medium text-gray-cool-500 transition-colors hover:bg-alpha-900 cursor-pointer"
-                      >
-                        Clear
-                      </button>
-                    </div>
-                  )}
-                </div>
-            </PopoverContent>
-          </Popover>
+              </span>
+            </TaskDatePopover>
+          )}
         </div>
-        )}
+      )}
       </div>
 
       {/* Right: project badge + avatars */}
@@ -488,7 +330,6 @@ export function TaskRow({
             assignedIds={localAssignedIds}
             onChanged={onAssigneeChange}
             onAssignedIdsChange={(ids) => {
-              selfMutatedRef.current = true
               setLocalAssignedIds(ids)
             }}
           >

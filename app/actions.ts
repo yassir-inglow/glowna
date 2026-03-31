@@ -69,7 +69,7 @@ export async function signOut() {
 }
 
 export async function toggleTaskCompleted(taskId: string, completed: boolean) {
-  const { supabase, user } = await requireUser()
+  const { supabase } = await requireUser()
 
   // Sync status with completed flag
   const status = completed ? "done" : "todo"
@@ -238,6 +238,9 @@ export async function duplicateTask(taskId: string) {
   if (fetchError || !task) throw fetchError ?? new Error("Task not found")
 
   const { id: _id, created_at: _c, updated_at: _u, ...fields } = task
+  void _id
+  void _c
+  void _u
 
   const { data: newTask, error: insertError } = await supabase
     .from("tasks")
@@ -786,9 +789,19 @@ export async function saveProjectBoardColumns(
   // Enforce fixed first/last.
   const middle = Array.from(uniq.values()).filter((c) => c.status !== "todo" && c.status !== "done")
   const ordered: ProjectBoardColumnInput[] = [
-    { ...todo, label: "To do", headerBg: todo.headerBg ?? "bg-gray-cool-25", bodyBg: todo.bodyBg ?? todo.headerBg ?? "bg-gray-cool-25" },
+    {
+      ...todo,
+      label: todo.label?.trim() || "To do",
+      headerBg: todo.headerBg ?? "bg-gray-cool-25",
+      bodyBg: todo.bodyBg ?? todo.headerBg ?? "bg-gray-cool-25",
+    },
     ...middle,
-    { ...done, label: "Done", headerBg: done.headerBg ?? "bg-success-25", bodyBg: done.bodyBg ?? done.headerBg ?? "bg-success-25" },
+    {
+      ...done,
+      label: done.label?.trim() || "Done",
+      headerBg: done.headerBg ?? "bg-success-25",
+      bodyBg: done.bodyBg ?? done.headerBg ?? "bg-success-25",
+    },
   ]
 
   const desiredStatuses = new Set(ordered.map((c) => c.status))
@@ -810,7 +823,7 @@ export async function saveProjectBoardColumns(
   const upserts = ordered.map((c, index) => ({
     project_id: projectId,
     status: c.status,
-    label: c.status === "todo" ? "To do" : c.status === "done" ? "Done" : c.label,
+    label: c.label?.trim() || humanizeStatusLabel(c.status) || c.status,
     position: index,
     progress: computeColumnProgress(index, ordered.length),
     header_bg: c.headerBg ?? "bg-gray-cool-25",
