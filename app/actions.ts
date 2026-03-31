@@ -1,7 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { getResendClient } from "@/lib/resend"
+import { getResendClient, getResendFromAddress } from "@/lib/resend"
 import { projectInviteEmail } from "@/lib/emails/project-invite"
 import { projectRemovedEmail } from "@/lib/emails/project-removed"
 import { computeColumnProgress } from "@/lib/board-columns"
@@ -60,6 +60,19 @@ async function requireTaskAccess(
 
   await requireProjectAccess(supabase, userId, task.project_id)
   return task
+}
+
+async function getAppOrigin() {
+  const envOrigin =
+    process.env.NEXT_PUBLIC_APP_URL ??
+    process.env.APP_URL ??
+    process.env.SITE_URL
+  if (envOrigin) return envOrigin.replace(/\/+$/, "")
+
+  const headerList = await headers()
+  const host = headerList.get("host") ?? "localhost:3000"
+  const protocol = headerList.get("x-forwarded-proto") ?? "http"
+  return `${protocol}://${host}`
 }
 
 export async function signOut() {
@@ -334,10 +347,7 @@ export async function removeProjectMember(
 
   // Send email to the removed member
   if (memberProfile?.email) {
-    const headerList = await headers()
-    const host = headerList.get("host") ?? "localhost:3000"
-    const protocol = headerList.get("x-forwarded-proto") ?? "http"
-    const dashboardUrl = `${protocol}://${host}`
+    const dashboardUrl = await getAppOrigin()
 
     const { subject, html } = projectRemovedEmail({
       projectName,
@@ -348,7 +358,7 @@ export async function removeProjectMember(
     const resend = getResendClient()
     if (resend) {
       await resend.emails.send({
-        from: "Glowna <onboarding@resend.dev>",
+        from: getResendFromAddress(),
         to: memberProfile.email,
         subject,
         html,
@@ -423,7 +433,7 @@ export async function createProject(title: string, description?: string) {
 export async function inviteToProject(
   projectId: string,
   email: string,
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; warning?: string }> {
   const { supabase, user } = await requireUser()
   await requireProjectAccess(supabase, user.id, projectId)
 
@@ -493,10 +503,7 @@ export async function inviteToProject(
   const projectName = project?.title ?? "Untitled project"
   const inviterName = inviterProfile?.full_name ?? inviterProfile?.email ?? "Someone"
 
-  const headerList = await headers()
-  const host = headerList.get("host") ?? "localhost:3000"
-  const protocol = headerList.get("x-forwarded-proto") ?? "http"
-  const origin = `${protocol}://${host}`
+  const origin = await getAppOrigin()
   const acceptUrl = `${origin}/invite?token=${invitation.token}`
 
   const { subject, html } = projectInviteEmail({
@@ -508,18 +515,24 @@ export async function inviteToProject(
 
   const resend = getResendClient()
   if (!resend) {
-    return { success: false, error: "Email service is not configured" }
+    return {
+      success: true,
+      warning: "Invitation created, but email delivery is not configured. The invite will still appear in-app for existing users.",
+    }
   }
 
   const { error: emailError } = await resend.emails.send({
-    from: "Glowna <onboarding@resend.dev>",
+    from: getResendFromAddress(),
     to: normalizedEmail,
     subject,
     html,
   })
 
   if (emailError) {
-    return { success: false, error: "Failed to send invitation email" }
+    return {
+      success: true,
+      warning: `Invitation created, but email delivery failed${emailError.message ? `: ${emailError.message}` : "."}`,
+    }
   }
 
   return { success: true }

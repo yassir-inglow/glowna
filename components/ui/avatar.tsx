@@ -40,9 +40,8 @@ const sizeInPx: Record<AvatarSize, number> = {
  * Outer wrapper is a plain div (no overflow-hidden) so AvatarBadge can
  * peek outside the circle. The Radix Root inside handles clipping.
  *
- * When `active` is set, the avatar gets a brand-colored ring and full opacity
- * (true) or a neutral ring and reduced opacity (false). Leave undefined for
- * no presence styling.
+ * When `active` is set, the avatar gets a brand-colored ring when true.
+ * Leave undefined or false for no presence styling.
  */
 function Avatar({
   className,
@@ -58,9 +57,9 @@ function Avatar({
       className={cn(
         "relative inline-flex shrink-0 rounded-full",
         size && sizeStyles[size],
-        active !== undefined && "ring-[1.5px] transition-[opacity,ring-color] duration-300",
-        active === true && "opacity-100 ring-brand-500",
-        active === false && "opacity-50 ring-white",
+        active !== undefined && "ring-[1.5px] transition-[ring-color] duration-300",
+        active === true && "ring-brand-500",
+        active === false && "ring-transparent",
         className
       )}
       {...props}

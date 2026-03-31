@@ -17,16 +17,17 @@ type SharePopoverProps = {
   projectId: string
   members: ProjectMember[]
   ownerId: string
+  activeUserIds?: Set<string>
   className?: string
   showIcon?: boolean
 }
 
-export function SharePopover({ projectId, members, ownerId, className, showIcon = true }: SharePopoverProps) {
+export function SharePopover({ projectId, members, ownerId, activeUserIds, className, showIcon = true }: SharePopoverProps) {
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState("")
   const [isPending, startTransition] = useTransition()
   const [removingId, setRemovingId] = useState<string | null>(null)
-  const [result, setResult] = useState<{ type: "success" | "error"; message: string } | null>(null)
+  const [result, setResult] = useState<{ type: "success" | "error" | "warning"; message: string } | null>(null)
   const user = useUser()
   const isCurrentUserOwner = user.id === ownerId
 
@@ -40,7 +41,10 @@ export function SharePopover({ projectId, members, ownerId, className, showIcon 
     startTransition(async () => {
       const res = await inviteToProject(projectId, email.trim())
       if (res.success) {
-        setResult({ type: "success", message: "Invitation sent!" })
+        setResult({
+          type: res.warning ? "warning" : "success",
+          message: res.warning ?? "Invitation sent!",
+        })
         setEmail("")
         setTimeout(() => {
           setResult(null)
@@ -109,7 +113,11 @@ export function SharePopover({ projectId, members, ownerId, className, showIcon 
                 <div
                   className={cn(
                     "flex items-center gap-1.5 text-text-xs font-medium",
-                    result.type === "success" ? "text-green-600" : "text-red-500",
+                    result.type === "success"
+                      ? "text-green-600"
+                      : result.type === "warning"
+                        ? "text-warning-600"
+                        : "text-red-500",
                   )}
                 >
                   {result.type === "success" && (
@@ -142,6 +150,7 @@ export function SharePopover({ projectId, members, ownerId, className, showIcon 
                 {members.map((member) => {
                   const isYou = member.id === user.id
                   const isOwner = member.id === ownerId
+                  const isActive = activeUserIds?.has(member.id) ?? false
                   const name = member.full_name || member.email?.split("@")[0] || "Unknown"
                   const canRemove = !isOwner && (isCurrentUserOwner || isYou)
                   const isRemoving = removingId === member.id
@@ -154,7 +163,7 @@ export function SharePopover({ projectId, members, ownerId, className, showIcon 
                         isRemoving && "opacity-50",
                       )}
                     >
-                      <Avatar size="sm" className="shrink-0">
+                      <Avatar size="sm" active={isActive} className="shrink-0 ring-offset-[1.5px] ring-offset-white">
                         {member.avatar_url ? (
                           <AvatarImage src={member.avatar_url} alt="" />
                         ) : (
