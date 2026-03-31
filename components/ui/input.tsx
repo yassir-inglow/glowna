@@ -5,7 +5,7 @@ import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import { cn } from "@/lib/utils"
 
 const inputVariants = cva(
-  "inline-flex w-full items-center gap-[4px] rounded-full border border-gray-cool-200 bg-alpha-900 font-medium text-gray-cool-300 overflow-hidden transition-all",
+  "inline-flex w-full items-center gap-[4px] rounded-full border border-gray-cool-100 bg-alpha-900 font-medium text-gray-cool-300 overflow-hidden transition-all",
   {
     variants: {
       size: {
@@ -41,12 +41,14 @@ const iconSizeMap: Record<string, number> = {
 type InputProps = Omit<React.ComponentProps<"input">, "size"> &
   VariantProps<typeof inputVariants> & {
     leadingIcon?: IconSvgElement
+    trailing?: React.ReactNode
   }
 
 function Input({
   className,
   size = "lg",
   leadingIcon,
+  trailing,
   ref,
   disabled,
   ...props
@@ -78,6 +80,7 @@ function Input({
         className="flex-1 min-w-0 bg-transparent outline-none text-gray-cool-700 placeholder:text-gray-cool-300 disabled:cursor-not-allowed"
         {...props}
       />
+      {trailing ? <div className="shrink-0">{trailing}</div> : null}
     </div>
   )
 }

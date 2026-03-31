@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Calendar03Icon, PlusSignIcon, Search01Icon, Tick01Icon } from "@hugeicons/core-free-icons"
+import { Calendar03Icon, Folder01Icon, PlusSignIcon, Search01Icon, Tick01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import type { DateRange } from "react-day-picker"
@@ -32,17 +32,20 @@ function NewTaskIcon() {
 
 type NewTaskRowProps = {
   projectId?: string
-  projects?: { id: string; title: string }[]
+  projects?: { id: string; title: string; members: ProjectMember[] }[]
   members?: ProjectMember[]
   onDone?: () => void
   onCreated?: () => void
+  autoFocus?: boolean
+  inputRef?: React.RefObject<HTMLInputElement | null>
 }
 
-export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: NewTaskRowProps) {
+export function NewTaskRow({ projectId, projects, members, onDone, onCreated, autoFocus = true, inputRef: inputRefProp }: NewTaskRowProps) {
   const rowRef = React.useRef<HTMLDivElement>(null)
-  const inputRef = React.useRef<HTMLInputElement>(null)
+  const internalInputRef = React.useRef<HTMLInputElement>(null)
+  const inputRef = inputRefProp ?? internalInputRef
   const [selectedProjectId, setSelectedProjectId] = React.useState(
-    projectId ?? projects?.[0]?.id ?? "",
+    projectId ?? "",
   )
   const [saving, setSaving] = React.useState<string | null>(null)
   const submittedRef = React.useRef(false)
@@ -54,10 +57,12 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
   const [selectedAssigneeIds, setSelectedAssigneeIds] = React.useState<string[]>([])
   const [priority, setPriority] = React.useState<Priority>("none")
   const [priorityOpen, setPriorityOpen] = React.useState(false)
+  const [projectPickerOpen, setProjectPickerOpen] = React.useState(false)
 
   React.useEffect(() => {
+    if (!autoFocus) return
     inputRef.current?.focus()
-  }, [])
+  }, [autoFocus])
 
   function reset() {
     if (inputRef.current) inputRef.current.value = ""
@@ -71,6 +76,8 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
     setSelectedAssigneeIds([])
     setPriority("none")
     setPriorityOpen(false)
+    setProjectPickerOpen(false)
+    if (!projectId) setSelectedProjectId("")
   }
 
   function formatDateForDb(date: Date | undefined): string | null {
@@ -126,7 +133,7 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
 
   function handleBlur(e: React.FocusEvent) {
     if (submittedRef.current) return
-    if (calendarOpen || assigneeOpen || priorityOpen) return
+    if (calendarOpen || assigneeOpen || priorityOpen || projectPickerOpen) return
     if (rowRef.current?.contains(e.relatedTarget as Node)) return
     const title = inputRef.current?.value.trim()
     if (title && selectedProjectId) {
@@ -138,6 +145,11 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
 
   const showProjectPicker = !projectId && projects && projects.length > 0
   const selectedProject = projects?.find((p) => p.id === selectedProjectId)
+
+  const projectMembers = React.useMemo(() => {
+    if (members) return members
+    return projects?.find((p) => p.id === selectedProjectId)?.members ?? []
+  }, [members, projects, selectedProjectId])
 
   if (saving) {
     return (
@@ -270,34 +282,63 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        {showProjectPicker && (
-          <div className="relative shrink-0">
-            <ProjectBadge
-              projectId={selectedProjectId}
-              projectName={selectedProject?.title ?? "Project"}
-            />
-            <select
-              value={selectedProjectId}
-              onChange={(e) => setSelectedProjectId(e.target.value)}
-              onMouseDown={(e) => e.stopPropagation()}
-              className="absolute inset-0 cursor-pointer opacity-0"
+        {showProjectPicker ? (
+          <Popover open={projectPickerOpen} onOpenChange={setProjectPickerOpen}>
+            <PopoverTrigger asChild>
+              <button type="button" className="cursor-pointer outline-none shrink-0">
+                {selectedProject ? (
+                  <ProjectBadge
+                    projectId={selectedProject.id}
+                    projectName={selectedProject.title}
+                  />
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-gray-cool-50 py-px pl-px pr-2.5">
+                    <span className="relative flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-cool-200">
+                      <HugeiconsIcon icon={Folder01Icon} size={14} color="var(--color-gray-cool-400)" strokeWidth={1.5} />
+                    </span>
+                    <span className="text-text-xs font-medium text-gray-cool-400">Project</span>
+                  </span>
+                )}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              side="bottom"
+              align="end"
+              onClick={(e) => e.stopPropagation()}
+              onFocusOutside={(e) => e.preventDefault()}
             >
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.title}
-                </option>
-              ))}
-            </select>
-          </div>
+              <LocalProjectPicker
+                projects={projects}
+                selectedId={selectedProjectId}
+                onSelect={(id) => {
+                  setSelectedProjectId(id)
+                  setSelectedAssigneeIds([])
+                  setProjectPickerOpen(false)
+                }}
+                onClear={() => {
+                  setSelectedProjectId("")
+                  setSelectedAssigneeIds([])
+                  setProjectPickerOpen(false)
+                }}
+              />
+            </PopoverContent>
+          </Popover>
+        ) : !projectId && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-gray-cool-50 py-px pl-px pr-2.5">
+            <span className="relative flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-cool-200">
+              <HugeiconsIcon icon={Folder01Icon} size={14} color="var(--color-gray-cool-400)" strokeWidth={1.5} />
+            </span>
+            <span className="text-text-xs font-medium text-gray-cool-400">No projects</span>
+          </span>
         )}
 
         <Popover open={assigneeOpen} onOpenChange={setAssigneeOpen}>
           <PopoverTrigger asChild>
             <button type="button" className="flex items-center cursor-pointer outline-none">
-              {selectedAssigneeIds.length > 0 && members ? (
+              {selectedAssigneeIds.length > 0 && projectMembers.length > 0 ? (
                 <AvatarGroup>
                   {selectedAssigneeIds
-                    .map((id) => members.find((m) => m.id === id))
+                    .map((id) => projectMembers.find((m) => m.id === id))
                     .filter(Boolean)
                     .map((m) => (
                       <Avatar key={m!.id} size="xs" className="ring-[1.5px] ring-white">
@@ -323,7 +364,7 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
             onFocusOutside={(e) => e.preventDefault()}
           >
               <LocalAssigneePicker
-                members={members ?? []}
+                members={projectMembers}
                 selectedIds={selectedAssigneeIds}
                 onToggle={(id) => {
                   setSelectedAssigneeIds((prev) =>
@@ -335,6 +376,109 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated }: 
           </PopoverContent>
         </Popover>
       </div>
+    </div>
+  )
+}
+
+const PROJECT_COLORS = [
+  "#FF004A", "#6366F1", "#3B82F6", "#10B981",
+  "#F59E0B", "#EC4899", "#8B5CF6", "#14B8A6",
+]
+
+function hashCode(str: string) {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0
+  }
+  return Math.abs(hash)
+}
+
+function LocalProjectPicker({
+  projects,
+  selectedId,
+  onSelect,
+  onClear,
+}: {
+  projects: { id: string; title: string }[]
+  selectedId: string
+  onSelect: (id: string) => void
+  onClear: () => void
+}) {
+  const [search, setSearch] = React.useState("")
+
+  const filtered = React.useMemo(() => {
+    const q = search.toLowerCase().trim()
+    if (!q) return projects
+    return projects.filter((p) => p.title.toLowerCase().includes(q))
+  }, [projects, search])
+
+  return (
+    <div className="w-[240px]">
+      <div className="border-b border-gray-cool-100 p-2">
+        <Input
+          size="md"
+          leadingIcon={Search01Icon}
+          placeholder="Search projects"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+
+      <div className="flex flex-col gap-0.5 p-2 max-h-[200px] overflow-y-auto scrollbar-hidden">
+        {filtered.length === 0 ? (
+          <p className="px-3 py-4 text-center text-text-xs font-medium text-gray-cool-400">
+            No projects found
+          </p>
+        ) : (
+          filtered.map((project) => {
+            const isSelected = project.id === selectedId
+            const color = PROJECT_COLORS[hashCode(project.id) % PROJECT_COLORS.length]
+
+            return (
+              <button
+                key={project.id}
+                type="button"
+                onClick={() => onSelect(project.id)}
+                className="flex w-full items-center justify-between rounded-full px-3 py-2 transition-colors hover:bg-alpha-900 cursor-pointer"
+              >
+                <div className="flex flex-1 items-center gap-2 min-w-0">
+                  <span
+                    className="relative flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-full"
+                    style={{ backgroundColor: color }}
+                  >
+                    <HugeiconsIcon icon={Folder01Icon} size={14} color="white" strokeWidth={1.5} />
+                    <span className="pointer-events-none absolute inset-0 rounded-full shadow-[inset_0px_5.4px_10.8px_0px_rgba(255,255,255,0.4)]" />
+                  </span>
+                  <span className="truncate text-text-sm font-medium text-gray-cool-500">
+                    {project.title}
+                  </span>
+                </div>
+                {isSelected && (
+                  <HugeiconsIcon
+                    icon={Tick01Icon}
+                    size={18}
+                    color="var(--color-brand-500)"
+                    strokeWidth={2}
+                    className="shrink-0"
+                  />
+                )}
+              </button>
+            )
+          })
+        )}
+      </div>
+
+      {selectedId && (
+        <div className="border-t border-gray-cool-100 p-2">
+          <button
+            type="button"
+            onClick={onClear}
+            className="w-full rounded-full py-2 text-center text-text-sm font-medium text-gray-cool-500 transition-colors hover:bg-alpha-900 cursor-pointer"
+          >
+            Clear
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -374,7 +518,7 @@ function LocalAssigneePicker({
         />
       </div>
 
-      <div className="flex flex-col max-h-[200px] overflow-y-auto scrollbar-hidden">
+      <div className="flex flex-col gap-0.5 p-2 max-h-[200px] overflow-y-auto scrollbar-hidden">
         {filtered.length === 0 ? (
           <p className="px-3 py-4 text-center text-text-xs font-medium text-gray-cool-400">
             No members found
@@ -389,7 +533,7 @@ function LocalAssigneePicker({
                 key={member.id}
                 type="button"
                 onClick={() => onToggle(member.id)}
-                className="flex w-full items-center justify-between px-3 py-2 transition-colors hover:bg-alpha-900 cursor-pointer"
+                className="flex w-full items-center justify-between rounded-full px-3 py-2 transition-colors hover:bg-alpha-900 cursor-pointer"
               >
                 <div className="flex flex-1 items-center gap-2 min-w-0">
                   <Avatar size="xs" className="shrink-0">

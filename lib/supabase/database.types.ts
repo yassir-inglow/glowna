@@ -158,6 +158,53 @@ export type Database = {
           },
         ]
       }
+      project_board_columns: {
+        Row: {
+          body_bg: string
+          created_at: string
+          header_bg: string
+          id: string
+          label: string
+          position: number
+          progress: number
+          project_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          body_bg?: string
+          created_at?: string
+          header_bg?: string
+          id?: string
+          label: string
+          position: number
+          progress?: number
+          project_id: string
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          body_bg?: string
+          created_at?: string
+          header_bg?: string
+          id?: string
+          label?: string
+          position?: number
+          progress?: number
+          project_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_board_columns_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           compact_avatars: boolean
@@ -229,6 +276,7 @@ export type Database = {
       tasks: {
         Row: {
           add_text: string | null
+          board_position: number
           comment_count: number
           completed: boolean
           created_at: string
@@ -239,6 +287,7 @@ export type Database = {
           position: number
           priority: string
           project_id: string
+          status: string
           sub_task_current: number
           sub_task_total: number
           title: string
@@ -247,6 +296,7 @@ export type Database = {
         }
         Insert: {
           add_text?: string | null
+          board_position?: number
           comment_count?: number
           completed?: boolean
           created_at?: string
@@ -257,6 +307,7 @@ export type Database = {
           position?: number
           priority?: string
           project_id: string
+          status?: string
           sub_task_current?: number
           sub_task_total?: number
           title: string
@@ -265,6 +316,7 @@ export type Database = {
         }
         Update: {
           add_text?: string | null
+          board_position?: number
           comment_count?: number
           completed?: boolean
           created_at?: string
@@ -275,6 +327,7 @@ export type Database = {
           position?: number
           priority?: string
           project_id?: string
+          status?: string
           sub_task_current?: number
           sub_task_total?: number
           title?: string

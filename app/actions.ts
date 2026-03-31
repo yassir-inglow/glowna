@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { getResendClient } from "@/lib/resend"
 import { projectInviteEmail } from "@/lib/emails/project-invite"
 import { projectRemovedEmail } from "@/lib/emails/project-removed"
+import { computeColumnProgress } from "@/lib/board-columns"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { headers } from "next/headers"
@@ -28,7 +29,19 @@ async function requireProjectAccess(
     .eq("project_id", projectId)
     .eq("profile_id", userId)
 
-  if (!count || count === 0) throw new Error("Access denied")
+  if (count && count > 0) return
+
+  // Fallback for legacy projects where the owner membership row might be missing.
+  const { data: project, error } = await supabase
+    .from("projects")
+    .select("user_id")
+    .eq("id", projectId)
+    .maybeSingle()
+
+  if (error) throw error
+  if (project?.user_id === userId) return
+
+  throw new Error("Access denied")
 }
 
 async function requireTaskAccess(
@@ -56,13 +69,16 @@ export async function signOut() {
 }
 
 export async function toggleTaskCompleted(taskId: string, completed: boolean) {
-  const { supabase, user } = await requireUser()
+  const { supabase } = await requireUser()
+
+  // Sync status with completed flag
+  const status = completed ? "done" : "todo"
 
   // Single query: update + return project_id. RLS ensures the user has access;
   // manual ownership check is a fallback if no row is returned.
   const { data, error } = await supabase
     .from("tasks")
-    .update({ completed })
+    .update({ completed, status })
     .eq("id", taskId)
     .select("project_id")
     .maybeSingle()
@@ -86,7 +102,7 @@ export async function toggleTaskCompleted(taskId: string, completed: boolean) {
 export async function createTask(
   projectId: string,
   title: string,
-  options?: { dueDate?: string | null; dueDateEnd?: string | null; assigneeIds?: string[]; priority?: string },
+  options?: { dueDate?: string | null; dueDateEnd?: string | null; assigneeIds?: string[]; priority?: string; status?: string; boardPosition?: number },
 ) {
   const { supabase, user } = await requireUser()
   await requireProjectAccess(supabase, user.id, projectId)
@@ -101,6 +117,8 @@ export async function createTask(
       due_date: options?.dueDate ?? null,
       due_date_end: options?.dueDateEnd ?? null,
       priority: options?.priority ?? "none",
+      status: options?.status ?? "todo",
+      board_position: options?.boardPosition ?? 0,
     })
     .select("id, created_at")
     .single()
@@ -220,6 +238,9 @@ export async function duplicateTask(taskId: string) {
   if (fetchError || !task) throw fetchError ?? new Error("Task not found")
 
   const { id: _id, created_at: _c, updated_at: _u, ...fields } = task
+  void _id
+  void _c
+  void _u
 
   const { data: newTask, error: insertError } = await supabase
     .from("tasks")
@@ -625,4 +646,230 @@ export async function clearTaskAssignees(taskId: string) {
 
   revalidatePath("/")
   revalidatePath(`/projects/${task.project_id}`)
+}
+
+export async function updateTaskStatus(taskId: string, status: string) {
+  const { supabase, user } = await requireUser()
+  const task = await requireTaskAccess(supabase, user.id, taskId)
+
+  const completed = status === "done"
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({ status, completed })
+    .eq("id", taskId)
+
+  if (error) throw error
+
+  revalidatePath(`/projects/${task.project_id}`)
+  revalidatePath("/")
+}
+
+export async function reorderTasksInColumn(
+  updates: { id: string; status: string; board_position: number }[],
+) {
+  const { supabase, user } = await requireUser()
+  if (updates.length === 0) return
+
+  const task = await requireTaskAccess(supabase, user.id, updates[0].id)
+
+  const results = await Promise.all(
+    updates.map((u) =>
+      supabase
+        .from("tasks")
+        .update({
+          status: u.status,
+          board_position: u.board_position,
+          completed: u.status === "done",
+        })
+        .eq("id", u.id),
+    ),
+  )
+
+  for (const r of results) {
+    if (r.error) throw r.error
+  }
+
+  revalidatePath(`/projects/${task.project_id}`)
+  revalidatePath("/")
+}
+
+type ProjectBoardColumnInput = {
+  status: string
+  label: string
+  headerBg?: string
+  bodyBg?: string
+}
+
+function humanizeStatusLabel(status: string) {
+  return (status || "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (m) => m.toUpperCase())
+}
+
+export async function ensureProjectBoardColumns(projectId: string) {
+  const { supabase, user } = await requireUser()
+  await requireProjectAccess(supabase, user.id, projectId)
+
+  const { count, error: countError } = await supabase
+    .from("project_board_columns")
+    .select("id", { count: "exact", head: true })
+    .eq("project_id", projectId)
+
+  if (countError) throw countError
+  if (count && count > 0) return
+
+  const { data: taskRows, error: taskError } = await supabase
+    .from("tasks")
+    .select("status")
+    .eq("project_id", projectId)
+
+  if (taskError) throw taskError
+
+  const extraStatuses = Array.from(
+    new Set(
+      (taskRows ?? [])
+        .map((r) => (r.status ?? "").trim())
+        .filter((s) => s && s !== "todo" && s !== "in_progress" && s !== "done"),
+    ),
+  ).sort((a, b) => a.localeCompare(b))
+
+  const base = [
+    { status: "todo", label: "To do", header_bg: "bg-gray-cool-25", body_bg: "bg-gray-cool-25" },
+    { status: "in_progress", label: "In progress", header_bg: "bg-purple-25", body_bg: "bg-purple-25" },
+    ...extraStatuses.map((status) => ({
+      status,
+      label: humanizeStatusLabel(status) || status,
+      header_bg: "bg-gray-cool-25",
+      body_bg: "bg-gray-cool-25",
+    })),
+    { status: "done", label: "Done", header_bg: "bg-success-25", body_bg: "bg-success-25" },
+  ]
+
+  const total = base.length
+  const rows = base.map((c, index) => ({
+    ...c,
+    project_id: projectId,
+    position: index,
+    progress: computeColumnProgress(index, total),
+  }))
+
+  const { error } = await supabase.from("project_board_columns").insert(rows)
+
+  if (error) throw error
+
+  revalidatePath(`/projects/${projectId}`)
+}
+
+export async function saveProjectBoardColumns(
+  projectId: string,
+  columns: ProjectBoardColumnInput[],
+  removedStatuses?: string[],
+) {
+  const { supabase, user } = await requireUser()
+  await requireProjectAccess(supabase, user.id, projectId)
+
+  const uniq = new Map<string, ProjectBoardColumnInput>()
+  for (const c of columns ?? []) {
+    const status = (c.status ?? "").trim()
+    if (!status) continue
+    uniq.set(status, {
+      status,
+      label: (c.label ?? "").trim() || status,
+      headerBg: c.headerBg,
+      bodyBg: c.bodyBg,
+    })
+  }
+
+  const todo = uniq.get("todo") ?? { status: "todo", label: "To do", headerBg: "bg-gray-cool-25", bodyBg: "bg-gray-cool-25" }
+  const done = uniq.get("done") ?? { status: "done", label: "Done", headerBg: "bg-success-25", bodyBg: "bg-success-25" }
+
+  // Enforce fixed first/last.
+  const middle = Array.from(uniq.values()).filter((c) => c.status !== "todo" && c.status !== "done")
+  const ordered: ProjectBoardColumnInput[] = [
+    {
+      ...todo,
+      label: todo.label?.trim() || "To do",
+      headerBg: todo.headerBg ?? "bg-gray-cool-25",
+      bodyBg: todo.bodyBg ?? todo.headerBg ?? "bg-gray-cool-25",
+    },
+    ...middle,
+    {
+      ...done,
+      label: done.label?.trim() || "Done",
+      headerBg: done.headerBg ?? "bg-success-25",
+      bodyBg: done.bodyBg ?? done.headerBg ?? "bg-success-25",
+    },
+  ]
+
+  const desiredStatuses = new Set(ordered.map((c) => c.status))
+
+  const toDelete = (removedStatuses ?? [])
+    .map((s) => (s ?? "").trim())
+    .filter((s) => s && s !== "todo" && s !== "done" && !desiredStatuses.has(s))
+
+  if (toDelete.length > 0) {
+    // Move any tasks that were in deleted columns back to "To do".
+    const { error: taskError } = await supabase
+      .from("tasks")
+      .update({ status: "todo", completed: false })
+      .eq("project_id", projectId)
+      .in("status", toDelete)
+    if (taskError) throw new Error(taskError.message)
+  }
+
+  const upserts = ordered.map((c, index) => ({
+    project_id: projectId,
+    status: c.status,
+    label: c.label?.trim() || humanizeStatusLabel(c.status) || c.status,
+    position: index,
+    progress: computeColumnProgress(index, ordered.length),
+    header_bg: c.headerBg ?? "bg-gray-cool-25",
+    body_bg: c.bodyBg ?? c.headerBg ?? "bg-gray-cool-25",
+  }))
+
+  const { error } = await supabase
+    .from("project_board_columns")
+    .upsert(upserts, { onConflict: "project_id,status" })
+
+  if (error) {
+    const msg = error.message
+    if (
+      msg &&
+      msg.toLowerCase().includes("no unique or exclusion constraint") &&
+      msg.toLowerCase().includes("on conflict")
+    ) {
+      // Fallback for environments where the unique index isn't present yet.
+      const { error: delAllError } = await supabase
+        .from("project_board_columns")
+        .delete()
+        .eq("project_id", projectId)
+      if (delAllError) throw new Error(delAllError.message)
+
+      const { error: insertError } = await supabase
+        .from("project_board_columns")
+        .insert(upserts)
+      if (insertError) throw new Error(insertError.message)
+    } else {
+      if (msg && msg.toLowerCase().includes("relation") && msg.toLowerCase().includes("project_board_columns")) {
+        throw new Error(
+          `${msg}. Run the Supabase migration lib/supabase/migrations/012_project_board_columns.sql in your Supabase project.`,
+        )
+      }
+      throw new Error(msg || "Couldn't save board columns.")
+    }
+  }
+
+  if (toDelete.length > 0) {
+    const { error: delError } = await supabase
+      .from("project_board_columns")
+      .delete()
+      .eq("project_id", projectId)
+      .in("status", toDelete)
+    if (delError) throw new Error(delError.message)
+  }
+
+  revalidatePath(`/projects/${projectId}`)
 }

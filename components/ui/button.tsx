@@ -17,7 +17,7 @@ const buttonVariants = cva(
           "text-gray-cool-500 [--icon-color:var(--color-gray-cool-300)] hover:bg-alpha-800 hover:[--icon-color:var(--color-gray-cool-400)]",
       },
       size: {
-        xxs: "pl-1 pr-1.5 py-1 text-text-xs",
+        xxs: "pl-2 pr-2.5 py-1.5 text-text-xs",
         xs: "py-1 pl-1 pr-2 text-text-sm",
         sm: "py-2 pl-2 pr-3 text-text-sm",
         md: "py-2 pl-2 pr-4 text-text-sm",
@@ -84,6 +84,7 @@ type ButtonProps = React.ComponentProps<"button"> &
     leadingIcon?: IconSvgElement
     trailingIcon?: IconSvgElement
     iconOnly?: IconSvgElement
+    iconStrokeWidth?: number
     loading?: boolean
   }
 
@@ -95,6 +96,7 @@ function Button({
   leadingIcon,
   trailingIcon,
   iconOnly,
+  iconStrokeWidth,
   loading = false,
   children,
   ...props
@@ -106,7 +108,7 @@ function Button({
 
   const iconPx = iconSizeMap[resolvedSize ?? "md"] ?? 20
   const iconColor = variant === "primary" ? "currentColor" : "var(--icon-color, var(--color-gray-cool-300))"
-  const iconStroke = 1.4
+  const iconStroke = iconStrokeWidth ?? 1.4
 
   const gapClass =
     variant === "primary" || resolvedSize === "icon-xxs"

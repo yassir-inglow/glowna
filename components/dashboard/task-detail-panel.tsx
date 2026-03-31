@@ -4,32 +4,34 @@ import * as React from "react"
 import { useState, useRef, useEffect, useTransition, useMemo } from "react"
 import { motion } from "motion/react"
 import { Calendar03Icon, Flag02Icon, User02Icon, Tag01Icon } from "@hugeicons/core-free-icons"
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Switch } from "@/components/ui/switch"
-import { Calendar, RangeCalendar } from "@/components/ui/calendar"
 import { AssigneePopover } from "@/components/dashboard/assignee-popover"
 import { PriorityPopover, getPriorityConfig } from "@/components/dashboard/priority-picker"
 import type { Priority } from "@/components/dashboard/priority-picker"
-import { updateTaskTitle, updateTaskDates, toggleTaskCompleted } from "@/app/actions"
-import { markMutation, hasRecentLocalMutation } from "@/hooks/mutation-tracker"
+import { StatusPopover, getStatusConfig } from "@/components/dashboard/status-picker"
+import { TaskDatePopover, formatTaskDateLabel } from "@/components/dashboard/task-date-popover"
+import { ProgressRing } from "@/components/ui/progress-ring"
+import { updateTaskTitle, toggleTaskCompleted } from "@/app/actions"
+import { markMutation } from "@/hooks/mutation-tracker"
+import type { BoardColumnConfig } from "@/hooks/use-project-board-columns"
 import type { ProjectMember, TaskWithProject } from "@/lib/data"
-import type { DateRange } from "react-day-picker"
 
 type TaskDetailPanelProps = {
   task: TaskWithProject
   members: ProjectMember[]
+  boardColumns?: BoardColumnConfig[]
   onClose: () => void
   onTaskToggle?: (taskId: string, completed: boolean) => Promise<void>
   onTitleChange?: (taskId: string, title: string) => void
   onDateChange?: (taskId: string, dueDate: string | null, dueDateEnd: string | null) => void
   onPriorityChange?: (taskId: string, priority: Priority) => void
   onAssigneeChange?: (taskId: string, assignedIds: string[]) => void
+  onStatusChange?: (taskId: string, status: string) => void
 }
 
-export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleChange, onDateChange, onPriorityChange, onAssigneeChange }: TaskDetailPanelProps) {
+export function TaskDetailPanel({ task, members, boardColumns, onTaskToggle, onTitleChange, onDateChange, onPriorityChange, onAssigneeChange, onStatusChange }: TaskDetailPanelProps) {
   const [, startTransition] = useTransition()
 
   // ── Title ──────────────────────────────────────────────────────────────────
@@ -37,27 +39,6 @@ export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleC
   const savedTitleRef = useRef(task.title)
   const inputRef = useRef<HTMLInputElement>(null)
   const isEditingRef = useRef(false)
-
-  // Reset all local state when switching to a different task (stable key means no remount)
-  const taskIdRef = useRef(task.id)
-  useEffect(() => {
-    if (taskIdRef.current === task.id) return
-    taskIdRef.current = task.id
-    isEditingRef.current = false
-    setTitle(task.title)
-    savedTitleRef.current = task.title
-    setCompleted(task.completed)
-    setCalendarOpen(false)
-    setRangeMode(!!task.due_date_end)
-    setDueDate(task.due_date && !task.due_date_end ? new Date(task.due_date + "T00:00:00") : undefined)
-    setDateRange(
-      task.due_date && task.due_date_end
-        ? { from: new Date(task.due_date + "T00:00:00"), to: new Date(task.due_date_end + "T00:00:00") }
-        : undefined,
-    )
-    const ids = task.task_assignees.map((a) => a.profiles?.id).filter(Boolean) as string[]
-    setLocalAssignedIds(ids)
-  }, [task])
 
   // Delay focus until the slide-in animation settles to prevent visual glitch
   useEffect(() => {
@@ -70,14 +51,6 @@ export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleC
     }, 300)
     return () => clearTimeout(timer)
   }, [task.id])
-
-  // Sync from parent only when an external source updates the title (not our own edits)
-  useEffect(() => {
-    if (!isEditingRef.current && task.title !== savedTitleRef.current) {
-      savedTitleRef.current = task.title
-      setTitle(task.title)
-    }
-  }, [task.title])
 
   function handleTitleChange(e: React.ChangeEvent<HTMLInputElement>) {
     isEditingRef.current = true
@@ -110,9 +83,7 @@ export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleC
   }
 
   // ── Completed ──────────────────────────────────────────────────────────────
-  const [completed, setCompleted] = useState(task.completed)
-
-  useEffect(() => { setCompleted(task.completed) }, [task.completed])
+  const [completed, setCompleted] = React.useOptimistic(task.completed)
 
   function handleCheckedChange(checked: boolean | "indeterminate") {
     if (checked === "indeterminate") return
@@ -131,47 +102,20 @@ export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleC
     }
   }
 
-  // ── Due date ───────────────────────────────────────────────────────────────
-  const [calendarOpen, setCalendarOpen] = useState(false)
-  const [rangeMode, setRangeMode] = useState(!!task.due_date_end)
-  const [dueDate, setDueDate] = useState<Date | undefined>(() => {
-    if (task.due_date && !task.due_date_end) return new Date(task.due_date + "T00:00:00")
-    return undefined
-  })
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
-    if (task.due_date && task.due_date_end) {
-      return { from: new Date(task.due_date + "T00:00:00"), to: new Date(task.due_date_end + "T00:00:00") }
-    }
-    return undefined
-  })
-
-  function fmtDb(d: Date) {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-  }
-
   // ── Assignees ──────────────────────────────────────────────────────────────
-  const [localAssignedIds, setLocalAssignedIds] = useState<string[]>(
-    task.task_assignees.map((a) => a.profiles?.id).filter(Boolean) as string[],
+  const taskAssigneeIds = useMemo(
+    () => task.task_assignees.map((a) => a.profiles?.id).filter(Boolean) as string[],
+    [task.task_assignees],
   )
-
-  useEffect(() => {
-    const next = task.task_assignees.map((a) => a.profiles?.id).filter(Boolean) as string[]
-    if (hasRecentLocalMutation("task_assignees")) return
-    setLocalAssignedIds(next)
-  }, [task.task_assignees])
+  const [localAssignedIds, setLocalAssignedIds] = React.useOptimistic(taskAssigneeIds)
 
   const displayAssignees = useMemo(
     () => localAssignedIds.map((pid) => members.find((m) => m.id === pid)).filter(Boolean) as ProjectMember[],
     [localAssignedIds, members],
   )
 
-  const dateLabel = rangeMode && dateRange?.from
-    ? `${dateRange.from.toLocaleDateString("en-US", { month: "short", day: "numeric" })}${dateRange.to ? ` – ${dateRange.to.toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}`
-    : dueDate
-      ? dueDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-      : "Date"
-
   const priorityConfig = getPriorityConfig(task.priority ?? "none")
+  const statusConfig = getStatusConfig(task.status ?? "todo", boardColumns)
 
   const assigneeLabel = displayAssignees.length === 0
     ? "Assignee"
@@ -205,73 +149,20 @@ export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleC
         {/* Action buttons */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Date */}
-          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-            <PopoverTrigger asChild>
+          <TaskDatePopover
+            taskId={task.id}
+            dueDate={task.due_date}
+            dueDateEnd={task.due_date_end}
+            onDateChange={(dueDate, dueDateEnd) => onDateChange?.(task.id, dueDate, dueDateEnd)}
+            side="bottom"
+            align="start"
+          >
+            <span data-slot="popover-trigger">
               <Button variant="secondary" size="xxs" leadingIcon={Calendar03Icon}>
-                {dateLabel}
+                {formatTaskDateLabel(task.due_date, task.due_date_end)}
               </Button>
-            </PopoverTrigger>
-            <PopoverContent side="bottom">
-                {rangeMode ? (
-                  <RangeCalendar
-                    selected={dateRange}
-                    onSelect={(range) => {
-                      const prev = dateRange
-                      setDateRange(range)
-                      if (range?.from) {
-                        const from = fmtDb(range.from)
-                        const to = range.to ? fmtDb(range.to) : null
-                        onDateChange?.(task.id, from, to)
-                        markMutation("tasks")
-                        startTransition(async () => {
-                          try { await updateTaskDates(task.id, from, to) }
-                          catch { setDateRange(prev) }
-                        })
-                      }
-                    }}
-                  />
-                ) : (
-                  <Calendar
-                    mode="single"
-                    selected={dueDate}
-                    onSelect={(date) => {
-                      const prev = dueDate
-                      setDueDate(date)
-                      setCalendarOpen(false)
-                      const val = date ? fmtDb(date) : null
-                      onDateChange?.(task.id, val, null)
-                      markMutation("tasks")
-                      startTransition(async () => {
-                        try { await updateTaskDates(task.id, val, null) }
-                        catch { setDueDate(prev) }
-                      })
-                    }}
-                  />
-                )}
-                <div className="border-t border-gray-cool-100 px-3 py-2.5">
-                  <Switch
-                    label="End date"
-                    checked={rangeMode}
-                    onCheckedChange={() => {
-                      if (rangeMode) {
-                        const prevRange = dateRange
-                        setDateRange(undefined)
-                        onDateChange?.(task.id, dueDate ? fmtDb(dueDate) : null, null)
-                        markMutation("tasks")
-                        startTransition(async () => {
-                          try { await updateTaskDates(task.id, dueDate ? fmtDb(dueDate) : null, null) }
-                          catch { setDateRange(prevRange); setRangeMode(true) }
-                        })
-                      } else if (dueDate) {
-                        setDateRange({ from: dueDate, to: undefined })
-                        setDueDate(undefined)
-                      }
-                      setRangeMode(!rangeMode)
-                    }}
-                  />
-                </div>
-            </PopoverContent>
-          </Popover>
+            </span>
+          </TaskDatePopover>
 
           {/* Assignee */}
           <AssigneePopover
@@ -287,6 +178,19 @@ export function TaskDetailPanel({ task, members, onClose, onTaskToggle, onTitleC
               {assigneeLabel}
             </Button>
           </AssigneePopover>
+
+          {/* Status */}
+          <StatusPopover
+            taskId={task.id}
+            status={task.status ?? "todo"}
+            columns={boardColumns}
+            onStatusChange={(s) => onStatusChange?.(task.id, s)}
+          >
+            <Button variant="secondary" size="xxs">
+              <ProgressRing value={statusConfig.ringValue} size={16} color={statusConfig.ringColor} />
+              {statusConfig.label}
+            </Button>
+          </StatusPopover>
 
           {/* Priority */}
           <PriorityPopover
