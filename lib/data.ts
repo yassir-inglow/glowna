@@ -1,4 +1,9 @@
 import { createClient } from "@/lib/supabase/server"
+import {
+  isMissingProjectRoleSchemaError,
+  isProjectPermissionHelperError,
+  PROJECT_PERMISSION_HELPER_MIGRATION_ERROR,
+} from "@/lib/project-permissions"
 import type { Tables } from "@/lib/supabase/database.types"
 
 export type Project = Tables<"projects">
@@ -8,11 +13,14 @@ export type ProjectMember = {
   email: string | null
   full_name: string | null
   avatar_url: string | null
+  role: "editor" | "viewer"
 }
 
 export type ProjectWithMembers = Project & {
   members: ProjectMember[]
 }
+
+type ProjectMemberProfile = Omit<ProjectMember, "role">
 
 export type TaskWithProject = Tables<"tasks"> & {
   projects: Pick<Tables<"projects">, "title"> | null
@@ -23,7 +31,8 @@ export type TaskWithProject = Tables<"tasks"> & {
 
 type ProjectWithMemberJoin = Tables<"projects"> & {
   project_members: {
-    profiles: ProjectMember | null
+    role?: Tables<"project_members">["role"]
+    profiles: ProjectMemberProfile | null
   }[]
 }
 
@@ -35,15 +44,27 @@ function extractMembers(project: ProjectWithMemberJoin): ProjectWithMembers {
     const profile = pm.profiles
     if (profile && !seen.has(profile.id)) {
       seen.add(profile.id)
-      members.push(profile)
+      members.push({
+        ...profile,
+        role: pm.role === "viewer" ? "viewer" : "editor",
+      })
     }
   }
 
-  const { project_members: _pm, ...rest } = project
+  const { project_members, ...rest } = project
+  void project_members
   return { ...rest, members }
 }
 
 const PROJECT_WITH_MEMBERS_QUERY = `
+  *,
+  project_members(
+    role,
+    profiles(id, email, full_name, avatar_url)
+  )
+`
+
+const LEGACY_PROJECT_WITH_MEMBERS_QUERY = `
   *,
   project_members(
     profiles(id, email, full_name, avatar_url)
@@ -52,28 +73,67 @@ const PROJECT_WITH_MEMBERS_QUERY = `
 
 export async function getProjects(): Promise<ProjectWithMembers[]> {
   const supabase = await createClient()
-  const { data, error } = await supabase
+  const primary = await supabase
     .from("projects")
     .select(PROJECT_WITH_MEMBERS_QUERY)
     .order("created_at", { ascending: false })
 
-  if (error) throw error
+  let rows = primary.data as unknown as ProjectWithMemberJoin[] | null
+  let error = primary.error
 
-  return (data ?? []).map(extractMembers)
+  if (error && isMissingProjectRoleSchemaError(error)) {
+    const fallback = await supabase
+      .from("projects")
+      .select(LEGACY_PROJECT_WITH_MEMBERS_QUERY)
+      .order("created_at", { ascending: false })
+
+    rows = fallback.data as unknown as ProjectWithMemberJoin[] | null
+    error = fallback.error
+  }
+
+  if (error) {
+    if (isProjectPermissionHelperError(error)) {
+      throw new Error(PROJECT_PERMISSION_HELPER_MIGRATION_ERROR)
+    }
+
+    throw error
+  }
+
+  return (rows ?? []).map(extractMembers)
 }
 
 export async function getProjectById(id: string): Promise<ProjectWithMembers | null> {
   const supabase = await createClient()
-  const { data, error } = await supabase
+  const primary = await supabase
     .from("projects")
     .select(PROJECT_WITH_MEMBERS_QUERY)
     .eq("id", id)
     .single()
 
-  if (error && error.code !== "PGRST116") throw error
-  if (!data) return null
+  let row = primary.data as unknown as ProjectWithMemberJoin | null
+  let error = primary.error
 
-  return extractMembers(data)
+  if (error && isMissingProjectRoleSchemaError(error)) {
+    const fallback = await supabase
+      .from("projects")
+      .select(LEGACY_PROJECT_WITH_MEMBERS_QUERY)
+      .eq("id", id)
+      .single()
+
+    row = fallback.data as unknown as ProjectWithMemberJoin | null
+    error = fallback.error
+  }
+
+  if (error && error.code !== "PGRST116") {
+    if (isProjectPermissionHelperError(error)) {
+      throw new Error(PROJECT_PERMISSION_HELPER_MIGRATION_ERROR)
+    }
+
+    throw error
+  }
+  if (!row) return null
+
+  return extractMembers(row)
 }
 
 export async function getTasksByProjectId(projectId: string) {

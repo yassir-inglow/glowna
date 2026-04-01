@@ -11,8 +11,10 @@ import { useRealtimeRefresh } from "@/hooks/use-realtime-refresh"
 import { useProjectBoardColumns, type BoardColumnConfig } from "@/hooks/use-project-board-columns"
 import { reorderTasksInColumn as reorderAction } from "@/app/actions"
 import { markMutation } from "@/hooks/mutation-tracker"
+import { useUser } from "@/components/dashboard/user-provider"
 import type { ProjectWithMembers, TaskWithProject } from "@/lib/data"
 import type { Priority } from "@/components/dashboard/priority-picker"
+import { canWriteProject, getProjectPermission } from "@/lib/project-permissions"
 
 function getInitials(name: string | null | undefined): string {
   if (!name) return "?"
@@ -54,6 +56,7 @@ type ProjectDetailProps = {
 }
 
 export function ProjectDetail({ project, tasks, boardColumns: boardColumnsProp, onSaveBoardColumns, onDeleteTask, onTaskToggle, onTaskCreated, enableRealtimeRefresh = true, onTaskSelect, selectedTaskId, onTaskPriorityChange, onTaskAssigneeChange, onTaskStatusChange, onTaskReorder, onTaskDateChange }: ProjectDetailProps) {
+  const user = useUser()
   const [activeView, setActiveView] = React.useState<ProjectView>("overview")
   const [focusNewTask, setFocusNewTask] = React.useState(false)
   const newTaskInputRef = React.useRef<HTMLInputElement>(null)
@@ -74,6 +77,13 @@ export function ProjectDetail({ project, tasks, boardColumns: boardColumnsProp, 
   const boardColumnsState = useProjectBoardColumns(boardColumnsProp ? null : project.id)
   const boardColumns = boardColumnsProp ?? boardColumnsState.columns
   const saveBoardColumns = onSaveBoardColumns ?? boardColumnsState.save
+  const canWrite = canWriteProject(
+    getProjectPermission({
+      ownerId: project.user_id,
+      userId: user.id,
+      members: project.members,
+    }),
+  )
 
   const tasksById = React.useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks])
 
@@ -333,7 +343,9 @@ export function ProjectDetail({ project, tasks, boardColumns: boardColumnsProp, 
         onActiveViewChange={setActiveView}
         columns={boardColumns}
         onSaveColumns={saveBoardColumns}
+        canWrite={canWrite}
         onNewTask={() => {
+          if (!canWrite) return
           if (activeView === "board" || activeView === "timeline") setActiveView("list")
           setFocusNewTask(true)
         }}
@@ -365,6 +377,7 @@ export function ProjectDetail({ project, tasks, boardColumns: boardColumnsProp, 
           project={project}
           columns={boardColumns}
           onSaveColumns={saveBoardColumns}
+          canWrite={canWrite}
           onTaskToggle={onTaskToggle}
           onTaskCreated={onTaskCreated}
           onDeleteTask={(taskId) => { handleOptimisticDelete(taskId); onDeleteTask?.(taskId) }}
@@ -381,6 +394,7 @@ export function ProjectDetail({ project, tasks, boardColumns: boardColumnsProp, 
           tasks={displayTasks}
           projectId={project.id}
           columns={boardColumns}
+          canWrite={canWrite}
           onTaskSelect={onTaskSelect}
           selectedTaskId={selectedTaskId}
           onTaskDateChange={onTaskDateChange}
@@ -394,13 +408,15 @@ export function ProjectDetail({ project, tasks, boardColumns: boardColumnsProp, 
             onCreated={onTaskCreated}
             autoFocus={false}
             inputRef={newTaskInputRef}
+            canCreate={canWrite}
           />
           {displayTasks.map((task) => (
-            <TaskContextMenu key={task.id} taskId={task.id} projectId={task.project_id} onDelete={() => { handleOptimisticDelete(task.id); onDeleteTask?.(task.id) }}>
+            <TaskContextMenu key={task.id} taskId={task.id} projectId={task.project_id} canWrite={canWrite} onDelete={() => { handleOptimisticDelete(task.id); onDeleteTask?.(task.id) }}>
               <TaskRow
                 id={task.id}
                 title={task.title}
                 completed={task.completed}
+                canWrite={canWrite}
                 onCompletedChange={onTaskToggle ? (checked) => onTaskToggle(task.id, checked) : undefined}
                 showAddons={!!(task.sub_task_total || task.add_text || task.label_text || task.comment_count)}
                 subTaskCurrent={task.sub_task_current}

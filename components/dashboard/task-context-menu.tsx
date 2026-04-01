@@ -23,6 +23,7 @@ type TaskContextMenuProps = {
   projectId: string
   onDelete?: () => void
   children: React.ReactNode
+  canWrite?: boolean
 }
 
 export function TaskContextMenu({
@@ -30,6 +31,7 @@ export function TaskContextMenu({
   projectId,
   onDelete,
   children,
+  canWrite = true,
 }: TaskContextMenuProps) {
   const [, startTransition] = useTransition()
   const router = useRouter()
@@ -66,25 +68,29 @@ export function TaskContextMenu({
           />
           Open project
         </ContextMenuItem>
-        <ContextMenuItem onSelect={handleDuplicate}>
-          <HugeiconsIcon
-            icon={Copy02Icon}
-            size={18}
-            color="currentColor"
-            strokeWidth={1.5}
-          />
-          Duplicate
-        </ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem variant="destructive" onSelect={handleDelete}>
-          <HugeiconsIcon
-            icon={Delete02Icon}
-            size={18}
-            color="currentColor"
-            strokeWidth={1.5}
-          />
-          Delete
-        </ContextMenuItem>
+        {canWrite ? (
+          <>
+            <ContextMenuItem onSelect={handleDuplicate}>
+              <HugeiconsIcon
+                icon={Copy02Icon}
+                size={18}
+                color="currentColor"
+                strokeWidth={1.5}
+              />
+              Duplicate
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem variant="destructive" onSelect={handleDelete}>
+              <HugeiconsIcon
+                icon={Delete02Icon}
+                size={18}
+                color="currentColor"
+                strokeWidth={1.5}
+              />
+              Delete
+            </ContextMenuItem>
+          </>
+        ) : null}
       </ContextMenuContent>
     </ContextMenu>
   )

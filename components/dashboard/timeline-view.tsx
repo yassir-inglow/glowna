@@ -182,13 +182,14 @@ type TimelineViewProps = {
   tasks: TaskWithProject[]
   projectId: string
   columns?: BoardColumnConfig[]
+  canWrite?: boolean
   onTaskSelect?: (taskId: string) => void
   selectedTaskId?: string | null
   onTaskDateChange?: (taskId: string, dueDate: string | null, dueDateEnd: string | null) => void
   onTaskCreated?: () => void
 }
 
-export function TimelineView({ tasks, projectId, columns, onTaskSelect, selectedTaskId, onTaskDateChange, onTaskCreated }: TimelineViewProps) {
+export function TimelineView({ tasks, projectId, columns, canWrite = true, onTaskSelect, selectedTaskId, onTaskDateChange, onTaskCreated }: TimelineViewProps) {
   const { rangeStart, totalDays, today, hasAnyDate } = useTimelineRange(tasks)
   const { days, months } = useDayColumns(rangeStart, totalDays, today)
 
@@ -208,6 +209,7 @@ export function TimelineView({ tasks, projectId, columns, onTaskSelect, selected
 
   const handlePointerDown = React.useCallback(
     (e: React.PointerEvent, taskId: string, edge: "left" | "right" | "move", bar: { left: number; width: number; startDate: Date; endDate: Date }) => {
+      if (!canWrite) return
       e.preventDefault()
       e.stopPropagation()
       ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
@@ -223,7 +225,7 @@ export function TimelineView({ tasks, projectId, columns, onTaskSelect, selected
       })
       setDragDelta(0)
     },
-    [],
+    [canWrite],
   )
 
   const handlePointerMove = React.useCallback(
@@ -240,6 +242,13 @@ export function TimelineView({ tasks, projectId, columns, onTaskSelect, selected
   )
 
   const handlePointerUp = React.useCallback(() => {
+    if (!canWrite) {
+      setDrag(null)
+      setDragDelta(0)
+      setCreateDrag(null)
+      return
+    }
+
     if (drag) {
       const daysDelta = Math.round(dragDelta / DAY_WIDTH)
 
@@ -305,11 +314,12 @@ export function TimelineView({ tasks, projectId, columns, onTaskSelect, selected
 
       setCreateDrag(null)
     }
-  }, [drag, dragDelta, onTaskDateChange, createDrag, rangeStart, projectId, onTaskCreated])
+  }, [canWrite, drag, dragDelta, onTaskDateChange, createDrag, rangeStart, projectId, onTaskCreated])
 
   // Handle drag-to-create on empty area
   const handleGridPointerDown = React.useCallback(
     (e: React.PointerEvent) => {
+      if (!canWrite) return
       // Only start create-drag if clicking on the grid background (not a bar)
       if ((e.target as HTMLElement).closest("[data-timeline-bar]")) return
       const body = bodyScrollRef.current
@@ -330,7 +340,7 @@ export function TimelineView({ tasks, projectId, columns, onTaskSelect, selected
         rowIndex,
       })
     },
-    [tasks.length],
+    [canWrite, tasks.length],
   )
 
   // Compute visual bar position during drag
@@ -595,7 +605,10 @@ export function TimelineView({ tasks, projectId, columns, onTaskSelect, selected
                   {/* Left resize handle */}
                   <div
                     data-timeline-bar
-                    className="absolute top-0 left-0 z-10 flex h-full cursor-col-resize items-center justify-center opacity-0 transition-opacity group-hover:opacity-100"
+                    className={cn(
+                      "absolute top-0 left-0 z-10 flex h-full items-center justify-center opacity-0 transition-opacity",
+                      canWrite ? "cursor-col-resize group-hover:opacity-100" : "pointer-events-none",
+                    )}
                     style={{ width: HANDLE_WIDTH }}
                     onPointerDown={(e) => handlePointerDown(e, task.id, "left", bar)}
                   >
@@ -607,10 +620,15 @@ export function TimelineView({ tasks, projectId, columns, onTaskSelect, selected
                     data-timeline-bar
                     className={cn(
                       "flex min-w-0 flex-1 items-center gap-1 px-2",
-                      isDragging && drag?.edge === "move" ? "cursor-grabbing" : "cursor-grab",
+                      canWrite
+                        ? isDragging && drag?.edge === "move"
+                          ? "cursor-grabbing"
+                          : "cursor-grab"
+                        : "cursor-pointer",
                     )}
                     style={{ height: BAR_HEIGHT }}
                     onPointerDown={(e) => {
+                      if (!canWrite) return
                       handlePointerDown(e, task.id, "move", bar)
                     }}
                     onClick={(e) => {
@@ -627,7 +645,10 @@ export function TimelineView({ tasks, projectId, columns, onTaskSelect, selected
                   {/* Right resize handle */}
                   <div
                     data-timeline-bar
-                    className="absolute top-0 right-0 z-10 flex h-full cursor-col-resize items-center justify-center opacity-0 transition-opacity group-hover:opacity-100"
+                    className={cn(
+                      "absolute top-0 right-0 z-10 flex h-full items-center justify-center opacity-0 transition-opacity",
+                      canWrite ? "cursor-col-resize group-hover:opacity-100" : "pointer-events-none",
+                    )}
                     style={{ width: HANDLE_WIDTH }}
                     onPointerDown={(e) => handlePointerDown(e, task.id, "right", bar)}
                   >

@@ -12,6 +12,10 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { updateTaskPriority } from "@/app/actions"
 import { markMutation } from "@/hooks/mutation-tracker"
+import {
+  ProjectEditAccessPopover,
+  type ProjectEditAccessPrompt,
+} from "@/components/dashboard/project-edit-access-popover"
 
 export type Priority = "none" | "low" | "medium" | "high" | "urgent"
 
@@ -111,6 +115,8 @@ type PriorityPopoverProps = {
   priority: Priority
   onPriorityChange?: (priority: Priority) => void
   children: React.ReactNode
+  disabled?: boolean
+  editAccessPrompt?: ProjectEditAccessPrompt
 }
 
 export function PriorityPopover({
@@ -118,8 +124,24 @@ export function PriorityPopover({
   priority,
   onPriorityChange,
   children,
+  disabled = false,
+  editAccessPrompt,
 }: PriorityPopoverProps) {
   const [open, setOpen] = useState(false)
+
+  if (disabled) {
+    if (editAccessPrompt) {
+      return (
+        <ProjectEditAccessPopover
+          {...editAccessPrompt}
+          actionLabel={editAccessPrompt.actionLabel ?? "change the priority"}
+        >
+          {children}
+        </ProjectEditAccessPopover>
+      )
+    }
+    return <>{children}</>
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

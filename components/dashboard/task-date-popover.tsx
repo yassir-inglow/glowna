@@ -8,6 +8,10 @@ import { Calendar, RangeCalendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Switch } from "@/components/ui/switch"
 import { markMutation } from "@/hooks/mutation-tracker"
+import {
+  ProjectEditAccessPopover,
+  type ProjectEditAccessPrompt,
+} from "@/components/dashboard/project-edit-access-popover"
 
 function toDate(value: string | null | undefined) {
   if (!value) return undefined
@@ -49,6 +53,8 @@ type TaskDatePopoverProps = {
   contentClassName?: string
   stopPropagation?: boolean
   rangeToggleLabel?: string
+  disabled?: boolean
+  editAccessPrompt?: ProjectEditAccessPrompt
 }
 
 export function TaskDatePopover({
@@ -62,6 +68,8 @@ export function TaskDatePopover({
   contentClassName,
   stopPropagation = false,
   rangeToggleLabel = "Add an end date",
+  disabled = false,
+  editAccessPrompt,
 }: TaskDatePopoverProps) {
   const [open, setOpen] = React.useState(false)
   const [isPending, startTransition] = React.useTransition()
@@ -91,6 +99,22 @@ export function TaskDatePopover({
     if (!open) return
     setCalendarMonth(dateRange?.from ?? singleDate ?? toDate(dueDate) ?? new Date())
   }, [open, dateRange?.from, singleDate, dueDate])
+
+  if (disabled) {
+    if (editAccessPrompt) {
+      return (
+        <ProjectEditAccessPopover
+          {...editAccessPrompt}
+          actionLabel={
+            editAccessPrompt.actionLabel ?? (dueDate || dueDateEnd ? "change the dates" : "add dates")
+          }
+        >
+          {children}
+        </ProjectEditAccessPopover>
+      )
+    }
+    return <>{children}</>
+  }
 
   function runPersist(
     nextDueDate: string | null,

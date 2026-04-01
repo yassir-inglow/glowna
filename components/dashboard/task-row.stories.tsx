@@ -2,7 +2,6 @@ import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { TaskRow, TaskRowSkeleton } from "./task-row";
 import type { ProjectMember } from "@/lib/data";
-import type { Priority } from "@/components/dashboard/priority-picker";
 
 const sampleAvatars = [
   { fallback: "A" },
@@ -10,9 +9,9 @@ const sampleAvatars = [
 ];
 
 const sampleMembers: ProjectMember[] = [
-  { id: "u1", full_name: "Alice Brown", email: "alice@example.com", avatar_url: null },
-  { id: "u2", full_name: "Bob Smith", email: "bob@example.com", avatar_url: null },
-  { id: "u3", full_name: "Carol Johnson", email: "carol@example.com", avatar_url: null },
+  { id: "u1", full_name: "Alice Brown", email: "alice@example.com", avatar_url: null, role: "editor" },
+  { id: "u2", full_name: "Bob Smith", email: "bob@example.com", avatar_url: null, role: "editor" },
+  { id: "u3", full_name: "Carol Johnson", email: "carol@example.com", avatar_url: null, role: "viewer" },
 ];
 
 const meta: Meta<typeof TaskRow> = {

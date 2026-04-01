@@ -14,8 +14,10 @@ import { ProjectDrawer } from "@/components/dashboard/project-drawer"
 import { SearchButton } from "@/components/dashboard/search-button"
 import { TaskRow } from "@/components/dashboard/task-row"
 import { TaskContextMenu } from "@/components/dashboard/task-context-menu"
+import { useUser } from "@/components/dashboard/user-provider"
 import { useRealtimeRefresh } from "@/hooks/use-realtime-refresh"
 import type { ProjectMember, ProjectWithMembers, TaskWithProject } from "@/lib/data"
+import { canWriteProject, getProjectPermission } from "@/lib/project-permissions"
 
 function getInitials(name: string | null | undefined): string {
   if (!name) return "?"
@@ -30,6 +32,7 @@ type ProjectsTasksViewProps = {
 }
 
 export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
+  const user = useUser()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = React.useState<ProjectTabValue>("project")
@@ -102,6 +105,27 @@ export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
     for (const p of projects) map.set(p.id, p.members)
     return map
   }, [projects])
+
+  const writableProjectIds = React.useMemo(() => {
+    return new Set(
+      projects
+        .filter((project) =>
+          canWriteProject(
+            getProjectPermission({
+              ownerId: project.user_id,
+              userId: user.id,
+              members: project.members,
+            }),
+          ),
+        )
+        .map((project) => project.id),
+    )
+  }, [projects, user.id])
+
+  const writableProjects = React.useMemo(
+    () => projects.filter((project) => writableProjectIds.has(project.id)),
+    [projects, writableProjectIds],
+  )
 
   const filteredTasks = React.useMemo(
     () =>
@@ -196,7 +220,8 @@ export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
             className="flex-1 min-h-0 overflow-y-auto scrollbar-hidden rounded-xl"
           >
             <NewTaskRow
-              projects={projects.map((p) => ({ id: p.id, title: p.title, members: p.members }))}
+              projects={writableProjects.map((p) => ({ id: p.id, title: p.title, members: p.members }))}
+              canCreate={writableProjects.length > 0}
               onCreated={() => router.refresh()}
             />
             <AnimatePresence initial={false}>
@@ -209,11 +234,12 @@ export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <TaskContextMenu taskId={task.id} projectId={task.project_id} onDelete={() => removeOptimisticTask(task.id)}>
+                  <TaskContextMenu taskId={task.id} projectId={task.project_id} canWrite={writableProjectIds.has(task.project_id)} onDelete={() => removeOptimisticTask(task.id)}>
                     <TaskRow
                       id={task.id}
                       title={task.title}
                       completed={task.completed}
+                      canWrite={writableProjectIds.has(task.project_id)}
                       showAddons={!!(task.sub_task_total || task.add_text || task.label_text || task.comment_count)}
                       subTaskCurrent={task.sub_task_current}
                       subTaskTotal={task.sub_task_total}

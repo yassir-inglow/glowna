@@ -6,7 +6,6 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import type { DateRange } from "react-day-picker"
 
-import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarAvvvatars, AvatarGroup, AvatarImage } from "@/components/ui/avatar"
@@ -38,9 +37,10 @@ type NewTaskRowProps = {
   onCreated?: () => void
   autoFocus?: boolean
   inputRef?: React.RefObject<HTMLInputElement | null>
+  canCreate?: boolean
 }
 
-export function NewTaskRow({ projectId, projects, members, onDone, onCreated, autoFocus = true, inputRef: inputRefProp }: NewTaskRowProps) {
+export function NewTaskRow({ projectId, projects, members, onDone, onCreated, autoFocus = true, inputRef: inputRefProp, canCreate = true }: NewTaskRowProps) {
   const rowRef = React.useRef<HTMLDivElement>(null)
   const internalInputRef = React.useRef<HTMLInputElement>(null)
   const inputRef = inputRefProp ?? internalInputRef
@@ -62,7 +62,7 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated, au
   React.useEffect(() => {
     if (!autoFocus) return
     inputRef.current?.focus()
-  }, [autoFocus])
+  }, [autoFocus, inputRef])
 
   function reset() {
     if (inputRef.current) inputRef.current.value = ""
@@ -150,6 +150,10 @@ export function NewTaskRow({ projectId, projects, members, onDone, onCreated, au
     if (members) return members
     return projects?.find((p) => p.id === selectedProjectId)?.members ?? []
   }, [members, projects, selectedProjectId])
+
+  if (!canCreate) {
+    return null
+  }
 
   if (saving) {
     return (

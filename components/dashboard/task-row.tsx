@@ -105,6 +105,7 @@ export type TaskRowProps = {
   id?: string
   title?: string
   completed?: boolean
+  canWrite?: boolean
   onCompletedChange?: (completed: boolean) => void | Promise<void>
   showAddons?: boolean
   subTaskCurrent?: number
@@ -140,6 +141,7 @@ export function TaskRow({
   id,
   title = "Project name",
   completed = false,
+  canWrite = true,
   onCompletedChange,
   showAddons = true,
   subTaskCurrent = 1,
@@ -203,6 +205,7 @@ export function TaskRow({
 
   function handleCheckedChange(checked: boolean | "indeterminate") {
     if (checked === "indeterminate") return
+    if (!canWrite) return
 
     if (onCompletedChange) {
       startTransition(async () => {
@@ -257,6 +260,7 @@ export function TaskRow({
           <Checkbox
             checked={optimisticCompleted}
             onCheckedChange={handleCheckedChange}
+            disabled={!canWrite}
           />
           <span
             className="text-text-md font-medium truncate text-gray-cool-700"
@@ -289,6 +293,16 @@ export function TaskRow({
               taskId={id}
               priority={priority}
               onPriorityChange={onPriorityChange}
+              disabled={!canWrite}
+              editAccessPrompt={
+                !canWrite && projectId
+                  ? {
+                      projectId,
+                      projectName,
+                      actionLabel: "change the priority",
+                    }
+                  : undefined
+              }
             >
               <span data-slot="popover-trigger">
                 <PriorityButton priority={priority} />
@@ -305,6 +319,16 @@ export function TaskRow({
               side="bottom"
               align="start"
               stopPropagation
+              disabled={!canWrite}
+              editAccessPrompt={
+                !canWrite && projectId
+                  ? {
+                      projectId,
+                      projectName,
+                      actionLabel: initialDueDate || initialDueDateEnd ? "change the dates" : "add dates",
+                    }
+                  : undefined
+              }
             >
               <span data-slot="popover-trigger">
               <Button variant="ghost" size="xxs" leadingIcon={Calendar03Icon}>
@@ -332,8 +356,18 @@ export function TaskRow({
             onAssignedIdsChange={(ids) => {
               setLocalAssignedIds(ids)
             }}
+            disabled={!canWrite}
+            editAccessPrompt={
+              !canWrite && projectId
+                ? {
+                    projectId,
+                    projectName,
+                    actionLabel: "assign teammates",
+                  }
+                : undefined
+            }
           >
-            <button type="button" className="flex items-center gap-0 cursor-pointer">
+            <button type="button" className={cn("flex items-center gap-0", canWrite && "cursor-pointer")}>
               {displayAvatars.length > 0 ? (
                 <AvatarGroup>
                   {displayAvatars.map((av, i) => (
@@ -349,7 +383,10 @@ export function TaskRow({
               ) : (
                 <span
                   data-slot="avatar"
-                  className="relative inline-flex shrink-0 items-center justify-center rounded-full bg-gray-cool-100 text-gray-cool-400 transition-colors hover:bg-gray-cool-200 hover:text-gray-cool-600 size-6"
+                  className={cn(
+                    "relative inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-gray-cool-100 text-gray-cool-400",
+                    canWrite && "transition-colors hover:bg-gray-cool-200 hover:text-gray-cool-600",
+                  )}
                 >
                   <HugeiconsIcon icon={PlusSignIcon} size={12} color="currentColor" strokeWidth={2} />
                 </span>

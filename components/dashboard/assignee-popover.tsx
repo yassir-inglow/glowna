@@ -11,6 +11,10 @@ import { Avatar, AvatarAvvvatars, AvatarImage } from "@/components/ui/avatar"
 import { toggleTaskAssignee, clearTaskAssignees } from "@/app/actions"
 import { markMutation } from "@/hooks/mutation-tracker"
 import type { ProjectMember } from "@/lib/data"
+import {
+  ProjectEditAccessPopover,
+  type ProjectEditAccessPrompt,
+} from "@/components/dashboard/project-edit-access-popover"
 
 // ─── Standalone picker ─────────────────────────────────────────────────────────
 
@@ -173,6 +177,8 @@ type AssigneePopoverProps = {
   children: React.ReactNode
   onChanged?: () => void
   onAssignedIdsChange?: (newIds: string[]) => void
+  disabled?: boolean
+  editAccessPrompt?: ProjectEditAccessPrompt
 }
 
 export function AssigneePopover({
@@ -182,8 +188,24 @@ export function AssigneePopover({
   children,
   onChanged,
   onAssignedIdsChange,
+  disabled = false,
+  editAccessPrompt,
 }: AssigneePopoverProps) {
   const [open, setOpen] = useState(false)
+
+  if (disabled) {
+    if (editAccessPrompt) {
+      return (
+        <ProjectEditAccessPopover
+          {...editAccessPrompt}
+          actionLabel={editAccessPrompt.actionLabel ?? "assign teammates"}
+        >
+          {children}
+        </ProjectEditAccessPopover>
+      )
+    }
+    return <>{children}</>
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
