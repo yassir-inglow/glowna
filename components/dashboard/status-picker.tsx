@@ -11,6 +11,10 @@ import { ProgressRing } from "@/components/ui/progress-ring"
 import { updateTaskStatus } from "@/app/actions"
 import { markMutation } from "@/hooks/mutation-tracker"
 import { getColumnRingColor } from "@/hooks/use-project-board-columns"
+import {
+  ProjectEditAccessPopover,
+  type ProjectEditAccessPrompt,
+} from "@/components/dashboard/project-edit-access-popover"
 
 export type TaskStatusValue = string
 
@@ -119,6 +123,8 @@ type StatusPopoverProps = {
   columns?: StatusSource[]
   onStatusChange?: (status: TaskStatusValue) => void
   children: React.ReactNode
+  disabled?: boolean
+  editAccessPrompt?: ProjectEditAccessPrompt
 }
 
 export function StatusPopover({
@@ -127,8 +133,24 @@ export function StatusPopover({
   columns,
   onStatusChange,
   children,
+  disabled = false,
+  editAccessPrompt,
 }: StatusPopoverProps) {
   const [open, setOpen] = useState(false)
+
+  if (disabled) {
+    if (editAccessPrompt) {
+      return (
+        <ProjectEditAccessPopover
+          {...editAccessPrompt}
+          actionLabel={editAccessPrompt.actionLabel ?? "change the status"}
+        >
+          {children}
+        </ProjectEditAccessPopover>
+      )
+    }
+    return <>{children}</>
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

@@ -82,6 +82,7 @@ export type Database = {
           id: string
           invited_by: string
           project_id: string
+          role: string
           status: string
           token: string
         }
@@ -92,6 +93,7 @@ export type Database = {
           id?: string
           invited_by: string
           project_id: string
+          role?: string
           status?: string
           token?: string
         }
@@ -102,6 +104,7 @@ export type Database = {
           id?: string
           invited_by?: string
           project_id?: string
+          role?: string
           status?: string
           token?: string
         }
@@ -128,18 +131,21 @@ export type Database = {
           id: string
           profile_id: string
           project_id: string
+          role: string
         }
         Insert: {
           created_at?: string
           id?: string
           profile_id: string
           project_id: string
+          role?: string
         }
         Update: {
           created_at?: string
           id?: string
           profile_id?: string
           project_id?: string
+          role?: string
         }
         Relationships: [
           {
@@ -355,9 +361,36 @@ export type Database = {
         }
         Returns: Json
       }
+      clear_project_access_notifications: {
+        Args: {
+          p_project_id: string
+          p_project_name?: string | null
+          p_user_id?: string
+        }
+        Returns: undefined
+      }
+      decline_project_invitation: {
+        Args: {
+          p_invitation_id: string
+        }
+        Returns: Json
+      }
       get_pending_invitations: {
         Args: Record<PropertyKey, never>
         Returns: Json
+      }
+      get_invitation_context: {
+        Args: {
+          p_token: string
+        }
+        Returns: Json
+      }
+      has_project_write_access: {
+        Args: {
+          p_profile_id: string
+          p_project_id: string
+        }
+        Returns: boolean
       }
       is_project_member: {
         Args: {
@@ -372,6 +405,18 @@ export type Database = {
           p_project_id: string
         }
         Returns: boolean
+      }
+      replace_project_access_notification: {
+        Args: {
+          p_actor_name: string
+          p_previous_role?: string | null
+          p_project_id: string
+          p_project_name: string
+          p_role?: string | null
+          p_type: string
+          p_user_id: string
+        }
+        Returns: undefined
       }
     }
     Enums: {

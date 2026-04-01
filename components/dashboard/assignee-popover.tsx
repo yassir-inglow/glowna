@@ -11,6 +11,10 @@ import { Avatar, AvatarAvvvatars, AvatarImage } from "@/components/ui/avatar"
 import { toggleTaskAssignee, clearTaskAssignees } from "@/app/actions"
 import { markMutation } from "@/hooks/mutation-tracker"
 import type { ProjectMember } from "@/lib/data"
+import {
+  ProjectEditAccessPopover,
+  type ProjectEditAccessPrompt,
+} from "@/components/dashboard/project-edit-access-popover"
 
 // ─── Standalone picker ─────────────────────────────────────────────────────────
 
@@ -52,14 +56,18 @@ export function AssigneePicker({
       ? assignedIds.filter((id) => id !== profileId)
       : [...assignedIds, profileId]
 
-    onAssignedIdsChange?.(next)
+    startTransition(() => {
+      onAssignedIdsChange?.(next)
+    })
     markMutation("task_assignees")
     startTransition(async () => {
       try {
         await toggleTaskAssignee(taskId, profileId)
       } catch (err) {
         console.error("[AssigneePicker] toggleTaskAssignee failed:", err)
-        onAssignedIdsChange?.(prev)
+        startTransition(() => {
+          onAssignedIdsChange?.(prev)
+        })
       }
       onChanged?.()
     })
@@ -67,14 +75,18 @@ export function AssigneePicker({
 
   function handleClear() {
     const prev = [...assignedIds]
-    onAssignedIdsChange?.([])
+    startTransition(() => {
+      onAssignedIdsChange?.([])
+    })
     markMutation("task_assignees")
     startTransition(async () => {
       try {
         await clearTaskAssignees(taskId)
       } catch (err) {
         console.error("[AssigneePicker] clearTaskAssignees failed:", err)
-        onAssignedIdsChange?.(prev)
+        startTransition(() => {
+          onAssignedIdsChange?.(prev)
+        })
       }
       onChanged?.()
     })
@@ -165,6 +177,8 @@ type AssigneePopoverProps = {
   children: React.ReactNode
   onChanged?: () => void
   onAssignedIdsChange?: (newIds: string[]) => void
+  disabled?: boolean
+  editAccessPrompt?: ProjectEditAccessPrompt
 }
 
 export function AssigneePopover({
@@ -174,8 +188,24 @@ export function AssigneePopover({
   children,
   onChanged,
   onAssignedIdsChange,
+  disabled = false,
+  editAccessPrompt,
 }: AssigneePopoverProps) {
   const [open, setOpen] = useState(false)
+
+  if (disabled) {
+    if (editAccessPrompt) {
+      return (
+        <ProjectEditAccessPopover
+          {...editAccessPrompt}
+          actionLabel={editAccessPrompt.actionLabel ?? "assign teammates"}
+        >
+          {children}
+        </ProjectEditAccessPopover>
+      )
+    }
+    return <>{children}</>
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

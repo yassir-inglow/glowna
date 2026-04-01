@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense, useEffectEvent } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,15 @@ export default function LoginPage() {
 }
 
 function LoginContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const inviteEmail = searchParams.get("email")?.trim().toLowerCase() ?? "";
+  const isInviteFlow = searchParams.get("invite") === "1";
+  const inviteProject = searchParams.get("project");
+  const inviterName = searchParams.get("inviter");
+  const nextUrl = searchParams.get("next") ?? "/";
+  const callbackError = searchParams.get("error");
+
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
@@ -32,18 +41,14 @@ function LoginContent() {
   const [error, setError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
   const lastAutoSubmittedOtpRef = useRef("");
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  // Show OAuth callback errors passed via ?error= query param
-  useEffect(() => {
-    const callbackError = searchParams.get("error");
-    if (callbackError === "auth_callback_failed") {
-      setError("Sign-in failed. Please try again.");
-    } else if (callbackError === "auth_code_exchange_failed") {
-      setError("Authentication failed during sign-in. Please try again.");
-    }
-  }, [searchParams]);
+  const emailLocked = isInviteFlow && inviteEmail.length > 0;
+  const activeEmail = emailLocked ? inviteEmail : email;
+  const callbackErrorMessage =
+    callbackError === "auth_callback_failed"
+      ? "Sign-in failed. Please try again."
+      : callbackError === "auth_code_exchange_failed"
+        ? "Authentication failed during sign-in. Please try again."
+        : null;
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -60,7 +65,7 @@ function LoginContent() {
     if (cooldown > 0) return { sent: false };
     setError(null);
 
-    const { error } = await supabase.auth.signInWithOtp({ email });
+    const { error } = await supabase.auth.signInWithOtp({ email: activeEmail });
 
     if (error) {
       if (error.message.toLowerCase().includes("rate limit")) {
@@ -76,7 +81,7 @@ function LoginContent() {
 
     startCooldown();
     return { sent: true };
-  }, [email, cooldown, startCooldown]);
+  }, [activeEmail, cooldown, startCooldown]);
 
   async function handleSendOtp(e: React.FormEvent) {
     e.preventDefault();
@@ -92,22 +97,20 @@ function LoginContent() {
     await sendOtp();
   }
 
-  const nextUrl = searchParams.get("next") ?? "/";
-
   const verifyOtpToken = useCallback(
     async (token: string) => {
       setLoading(true);
       setError(null);
 
       const { error: emailError } = await supabase.auth.verifyOtp({
-        email,
+        email: activeEmail,
         token,
         type: "email",
       });
 
       if (emailError) {
         const { error: signupError } = await supabase.auth.verifyOtp({
-          email,
+          email: activeEmail,
           token,
           type: "signup",
         });
@@ -122,8 +125,12 @@ function LoginContent() {
       router.push(nextUrl);
       router.refresh();
     },
-    [email, router, nextUrl]
+    [activeEmail, router, nextUrl]
   );
+
+  const submitOtp = useEffectEvent((value: string) => {
+    void verifyOtpToken(value);
+  });
 
   // Auto-submit OTP when all digits are entered
   useEffect(() => {
@@ -139,8 +146,8 @@ function LoginContent() {
     if (lastAutoSubmittedOtpRef.current === otp) return;
 
     lastAutoSubmittedOtpRef.current = otp;
-    void verifyOtpToken(otp);
-  }, [step, otp, loading, verifyOtpToken]);
+    submitOtp(otp);
+  }, [loading, otp, step]);
 
   async function handleGoogleSignIn() {
     const { error } = await supabase.auth.signInWithOAuth({
@@ -154,6 +161,16 @@ function LoginContent() {
     }
   }
 
+  const title = isInviteFlow ? "You've been invited" : "Sign up";
+  const subtitle = isInviteFlow
+    ? inviterName && inviteProject
+      ? `${inviterName} invited you to join "${inviteProject}". Use the invited email to continue.`
+      : "Use the invited email to continue to your project."
+    : "Simple, Beautiful web analytics.";
+  const submitLabel = isInviteFlow ? "Send verification code" : "Sign in";
+  const googleLabel = isInviteFlow ? "Continue with Google" : "Sign in with Google";
+  const otpEmailLabel = activeEmail;
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg-secondary px-4">
       <div className="flex w-full max-w-[404px] flex-col gap-2">
@@ -161,10 +178,10 @@ function LoginContent() {
           <div className="flex flex-col items-center gap-1.5 pb-6">
             <Logo size={42} />
             <h1 className="text-display-xs font-medium text-text-secondary">
-              Sign up
+              {title}
             </h1>
             <p className="text-text-md font-medium text-text-placeholder">
-              Simple, Beautiful web analytics.
+              {subtitle}
             </p>
           </div>
         )}
@@ -179,16 +196,23 @@ function LoginContent() {
               <Input
                 type="email"
                 size="lg"
-                value={email}
+                value={activeEmail}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
                 autoFocus
+                readOnly={emailLocked}
                 className="w-full"
               />
 
-              {error && (
-                <p className="text-text-sm text-text-error">{error}</p>
+              {emailLocked && (
+                <p className="text-text-sm font-medium text-text-placeholder">
+                  This invite is tied to <span className="text-text-secondary">{inviteEmail}</span>.
+                </p>
+              )}
+
+              {(error ?? callbackErrorMessage) && (
+                <p className="text-text-sm text-text-error">{error ?? callbackErrorMessage}</p>
               )}
 
               <Button
@@ -199,7 +223,7 @@ function LoginContent() {
                 disabled={cooldown > 0}
                 className="w-full"
               >
-                {cooldown > 0 ? `Wait ${cooldown}s` : "Sign in"}
+                {cooldown > 0 ? `Wait ${cooldown}s` : submitLabel}
               </Button>
             </form>
 
@@ -218,14 +242,16 @@ function LoginContent() {
                   className="size-6"
                 />
                 <span className="text-text-md font-medium text-text-secondary">
-                  Sign in with Google
+                  {googleLabel}
                 </span>
               </button>
 
-              <p className="text-text-sm font-medium text-text-tertiary">
-                Don&apos;t have an account?{" "}
-                <span className="cursor-pointer text-text-brand">Sign up</span>
-              </p>
+              {!isInviteFlow && (
+                <p className="text-text-sm font-medium text-text-tertiary">
+                  Don&apos;t have an account?{" "}
+                  <span className="cursor-pointer text-text-brand">Sign up</span>
+                </p>
+              )}
             </div>
           </>
         ) : (
@@ -234,7 +260,7 @@ function LoginContent() {
             <div className="flex flex-col items-center gap-6 rounded-[32px] bg-white p-8">
               <p className="w-full max-w-[234px] text-center text-text-md font-medium text-text-placeholder">
                 We send the verification code to{" "}
-                <span className="text-text-secondary">{email}.</span>
+                <span className="text-text-secondary">{otpEmailLabel}.</span>
               </p>
 
               <InputOTP

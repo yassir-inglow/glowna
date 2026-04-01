@@ -175,6 +175,7 @@ type KanbanBoardProps = {
   project: ProjectWithMembers
   columns: BoardColumnConfig[]
   onSaveColumns?: (next: BoardColumnConfig[]) => Promise<void> | void
+  canWrite?: boolean
   onTaskToggle?: (taskId: string, completed: boolean) => Promise<void>
   onTaskCreated?: () => void
   onDeleteTask?: (taskId: string) => void
@@ -196,6 +197,7 @@ export function KanbanBoard({
   project,
   columns: columnsConfig,
   onSaveColumns,
+  canWrite = true,
   onTaskCreated,
   onTaskSelect,
   selectedTaskId,
@@ -255,6 +257,7 @@ export function KanbanBoard({
 
   const handleRenameColumn = React.useCallback(
     async (columnId: string, label: string) => {
+      if (!canWrite) return
       if (!onSaveColumns) return
       const trimmed = label.trim()
       if (!trimmed) return
@@ -265,7 +268,7 @@ export function KanbanBoard({
 
       await onSaveColumns(nextColumns)
     },
-    [effectiveColumnsConfig, onSaveColumns],
+    [canWrite, effectiveColumnsConfig, onSaveColumns],
   )
 
   const kanbanCollision = React.useCallback<CollisionDetection>(
@@ -306,6 +309,7 @@ export function KanbanBoard({
 
   const handleAddTask = React.useCallback(
     async (status: string, title: string) => {
+      if (!canWrite) return
       const trimmed = title.trim()
       if (!trimmed) return
 
@@ -320,7 +324,7 @@ export function KanbanBoard({
       await createTask(project.id, trimmed, { status, boardPosition })
       onTaskCreated?.()
     },
-    [localColumns, onTaskCreated, project.id],
+    [canWrite, localColumns, onTaskCreated, project.id],
   )
 
   // Ref mirrors dropIndicator for synchronous reads in handleDragEnd.
@@ -365,10 +369,12 @@ export function KanbanBoard({
   // ─── Handlers ──────────────────────────────────────────────────────────
 
   function handleDragStart(event: DragStartEvent) {
+    if (!canWrite) return
     setActiveId(event.active.id as string)
   }
 
   function handleDragOver(event: DragOverEvent) {
+    if (!canWrite) return
     if (!event.over) {
       indicatorRef.current = null
       setDropIndicator(null)
@@ -403,6 +409,7 @@ export function KanbanBoard({
   }
 
   function handleDragEnd(event: DragEndEvent) {
+    if (!canWrite) return
     const draggedId = event.active.id as string
     // Cancel pending rAF
     if (rafRef.current) {
@@ -640,6 +647,7 @@ export function KanbanBoard({
                 config={col}
                 tasks={localColumns[col.id] ?? []}
                 members={project.members}
+                canWrite={canWrite}
                 isDragging={!!activeId || !!justDroppedId}
                 suppressLayoutForId={justDroppedId}
                 onTaskSelect={onTaskSelect}
@@ -658,7 +666,7 @@ export function KanbanBoard({
         </LayoutGroup>
 
         <DragOverlay dropAnimation={null}>
-          {activeTask && <KanbanCard task={activeTask} members={project.members} isDragOverlay />}
+          {activeTask && <KanbanCard task={activeTask} members={project.members} canWrite={canWrite} isDragOverlay />}
         </DragOverlay>
       </DndContext>
     </div>

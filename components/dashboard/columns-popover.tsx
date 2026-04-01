@@ -26,6 +26,7 @@ import { computeColumnProgress } from "@/lib/board-columns"
 type ColumnsPopoverProps = {
   columns: BoardColumnConfig[]
   onSave: (next: BoardColumnConfig[]) => Promise<void> | void
+  disabled?: boolean
 }
 
 function getErrorMessage(e: unknown): string | null {
@@ -64,7 +65,7 @@ function normalizeFixed(next: BoardColumnConfig[], fallback: BoardColumnConfig[]
   }))
 }
 
-export function ColumnsPopover({ columns, onSave }: ColumnsPopoverProps) {
+export function ColumnsPopover({ columns, onSave, disabled = false }: ColumnsPopoverProps) {
   const [open, setOpen] = React.useState(false)
   const [draft, setDraft] = React.useState<BoardColumnConfig[]>(columns)
   const [isAdding, setIsAdding] = React.useState(false)
@@ -88,6 +89,11 @@ export function ColumnsPopover({ columns, onSave }: ColumnsPopoverProps) {
   }
 
   function handleOpenChange(next: boolean) {
+    if (disabled) {
+      setOpen(false)
+      return
+    }
+
     if (!next) {
       const originalSig = signature(normalizeFixed(columns, columns))
       const draftSig = signature(normalizeFixed(draft, columns))
@@ -193,6 +199,7 @@ export function ColumnsPopover({ columns, onSave }: ColumnsPopoverProps) {
           aria-label="Columns"
           iconOnly={Settings05Icon}
           iconStrokeWidth={1.5}
+          disabled={disabled}
           className="size-8 border-0 bg-alpha-900 text-gray-cool-500 [--icon-color:currentColor] hover:bg-alpha-800"
         />
       </PopoverTrigger>

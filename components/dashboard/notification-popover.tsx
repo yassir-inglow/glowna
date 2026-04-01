@@ -11,20 +11,33 @@ import {
   acceptInvitation,
   declineInvitation,
   dismissNotification,
+  dismissProjectEditAccessRequest,
+  grantProjectEditAccess,
 } from "@/app/actions"
+import {
+  getProjectPermissionLabel,
+  normalizeProjectRole,
+  type ProjectRole,
+} from "@/lib/project-permissions"
 
 type Invitation = {
   id: string
   token: string
   projectName: string
   inviterName: string
+  role: ProjectRole
 }
 
 type GeneralNotification = {
   id: string
   type: string
+  createdAt: string
+  projectId?: string
   projectName: string
-  removerName: string
+  actorName: string
+  requesterId?: string
+  role?: ProjectRole
+  previousRole?: ProjectRole
 }
 
 type NotificationEntry =
@@ -74,8 +87,12 @@ function InvitationItem({
         sent you an invitation to join{" "}
         <span className="font-semibold text-gray-cool-900">
           {invitation.projectName}
-        </span>
-        . You can accept it or deny it.
+        </span>{" "}
+        with{" "}
+        <span className="font-semibold text-gray-cool-900">
+          {getProjectPermissionLabel(invitation.role)}
+        </span>{" "}
+        access. You can accept it or deny it.
       </p>
       {error && (
         <p className="text-text-xs font-medium text-red-500">{error}</p>
@@ -107,44 +124,181 @@ function InvitationItem({
   )
 }
 
-function RemovedNotificationItem({
+function GeneralNotificationItem({
   notification,
   onDismiss,
 }: {
   notification: GeneralNotification
   onDismiss: (id: string) => void
 }) {
+  const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   function handleDismiss() {
+    setError(null)
     startTransition(async () => {
+      if (
+        notification.type === "project_edit_access_requested"
+        && notification.projectId
+        && notification.requesterId
+      ) {
+        const result = await dismissProjectEditAccessRequest(
+          notification.id,
+          notification.projectId,
+          notification.requesterId,
+        )
+
+        if (!result.success) {
+          setError(result.error ?? "Couldn't dismiss this request.")
+          return
+        }
+      } else {
       await dismissNotification(notification.id)
+      }
       onDismiss(notification.id)
     })
   }
 
+  function handleGrantEditAccess() {
+    if (!notification.projectId || !notification.requesterId) return
+
+    setError(null)
+    startTransition(async () => {
+      const result = await grantProjectEditAccess(
+        notification.id,
+        notification.projectId!,
+        notification.requesterId!,
+      )
+
+      if (!result.success) {
+        setError(result.error ?? "Couldn't grant edit access.")
+        return
+      }
+
+      onDismiss(notification.id)
+    })
+  }
+
+  const roleLabel = notification.role ? getProjectPermissionLabel(notification.role) : null
+  const previousRoleLabel = notification.previousRole
+    ? getProjectPermissionLabel(notification.previousRole)
+    : null
+  const isRemoval = notification.type === "removed_from_project"
+  const isRoleChange = notification.type === "project_role_changed"
+  const isEditAccessRequest = notification.type === "project_edit_access_requested"
+
   return (
-    <div className="flex flex-col gap-2.5 rounded-xl bg-red-50 p-3">
+    <div className={`flex flex-col gap-2.5 rounded-xl p-3 ${isRemoval ? "bg-red-50" : "bg-gray-cool-50"}`}>
       <p className="text-text-sm font-medium leading-snug text-gray-cool-700">
-        <span className="font-semibold text-gray-cool-900">
-          {notification.removerName}
-        </span>{" "}
-        removed you from{" "}
-        <span className="font-semibold text-gray-cool-900">
-          {notification.projectName}
-        </span>
-        . You no longer have access to this project.
+        {isEditAccessRequest ? (
+          <>
+            <span className="font-semibold text-gray-cool-900">
+              {notification.actorName}
+            </span>{" "}
+            requested{" "}
+            <span className="font-semibold text-gray-cool-900">
+              Can edit
+            </span>{" "}
+            access to{" "}
+            <span className="font-semibold text-gray-cool-900">
+              {notification.projectName}
+            </span>
+            .
+          </>
+        ) : isRoleChange ? (
+          <>
+            <span className="font-semibold text-gray-cool-900">
+              {notification.actorName}
+            </span>{" "}
+            changed your access in{" "}
+            <span className="font-semibold text-gray-cool-900">
+              {notification.projectName}
+            </span>{" "}
+            {previousRoleLabel ? (
+              <>
+                from{" "}
+                <span className="font-semibold text-gray-cool-900">
+                  {previousRoleLabel}
+                </span>{" "}
+                to{" "}
+                <span className="font-semibold text-gray-cool-900">
+                  {roleLabel ?? "Can edit"}
+                </span>
+                .
+              </>
+            ) : (
+              <>
+                to{" "}
+                <span className="font-semibold text-gray-cool-900">
+                  {roleLabel ?? "Can edit"}
+                </span>
+                .
+              </>
+            )}
+          </>
+        ) : isRemoval ? (
+          <>
+            <span className="font-semibold text-gray-cool-900">
+              {notification.actorName}
+            </span>{" "}
+            removed you from{" "}
+            <span className="font-semibold text-gray-cool-900">
+              {notification.projectName}
+            </span>
+            . You no longer have access to this project.
+          </>
+        ) : (
+          <>
+            <span className="font-semibold text-gray-cool-900">
+              {notification.actorName}
+            </span>{" "}
+            updated your access in{" "}
+            <span className="font-semibold text-gray-cool-900">
+              {notification.projectName}
+            </span>
+            .
+          </>
+        )}
       </p>
-      <Button
-        type="button"
-        variant="secondary"
-        size="xs"
-        onClick={handleDismiss}
-        disabled={isPending}
-        className="w-full"
-      >
-        Dismiss
-      </Button>
+      {error ? (
+        <p className="text-text-xs font-medium text-red-500">{error}</p>
+      ) : null}
+      {isEditAccessRequest ? (
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="primary"
+            size="xs"
+            onClick={handleGrantEditAccess}
+            disabled={isPending || !notification.projectId || !notification.requesterId}
+            loading={isPending}
+            className="flex-1"
+          >
+            Grant edit access
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="xs"
+            onClick={handleDismiss}
+            disabled={isPending}
+            className="flex-1"
+          >
+            Dismiss
+          </Button>
+        </div>
+      ) : (
+        <Button
+          type="button"
+          variant="secondary"
+          size="xs"
+          onClick={handleDismiss}
+          disabled={isPending}
+          className="w-full"
+        >
+          Dismiss
+        </Button>
+      )}
     </div>
   )
 }
@@ -183,19 +337,87 @@ export function NotificationPopover({
             token: row.token,
             projectName: row.project_name ?? "Untitled project",
             inviterName: row.inviter_name ?? "Someone",
+            role: normalizeProjectRole(row.role),
           })),
         )
       }
 
       if (notifResult.data) {
-        setNotifications(
-          notifResult.data.map((row: any) => ({
+        const accessNotifications = new Map<string, GeneralNotification>()
+        const accessRequestNotifications = new Map<string, GeneralNotification>()
+        const miscNotifications: GeneralNotification[] = []
+
+        for (const row of notifResult.data as any[]) {
+          const projectId = typeof row.data?.project_id === "string" ? row.data.project_id : undefined
+          const projectName = row.data?.project_name ?? "a project"
+          const requesterId = typeof row.data?.requester_id === "string" ? row.data.requester_id : undefined
+          const notification: GeneralNotification = {
             id: row.id,
             type: row.type,
-            projectName: row.data?.project_name ?? "a project",
-            removerName: row.data?.remover_name ?? "Someone",
-          })),
-        )
+            createdAt: row.created_at,
+            projectId,
+            projectName,
+            actorName: row.data?.requester_name ?? row.data?.actor_name ?? row.data?.remover_name ?? "Someone",
+            requesterId,
+            role: row.data?.role ? normalizeProjectRole(row.data.role) : undefined,
+            previousRole: row.data?.previous_role
+              ? normalizeProjectRole(row.data.previous_role)
+              : undefined,
+          }
+          const isAccessRequest = notification.type === "project_edit_access_requested"
+          const isAccessEvent =
+            notification.type === "removed_from_project" || notification.type === "project_role_changed"
+
+          if (isAccessRequest) {
+            const requestKey = `${notification.projectId ?? `name:${notification.projectName.trim().toLowerCase()}`}:${
+              notification.requesterId ?? notification.actorName.trim().toLowerCase()
+            }`
+            const existing = accessRequestNotifications.get(requestKey)
+            const existingTime = existing ? (Date.parse(existing.createdAt) || 0) : 0
+            const nextTime = Date.parse(notification.createdAt) || 0
+
+            if (!existing || nextTime >= existingTime) {
+              accessRequestNotifications.set(requestKey, notification)
+            }
+
+            continue
+          }
+
+          if (!isAccessEvent) {
+            miscNotifications.push(notification)
+            continue
+          }
+
+          const accessKey = notification.projectId
+            ?? `name:${notification.projectName.trim().toLowerCase()}`
+          const existing = accessNotifications.get(accessKey)
+
+          if (!existing) {
+            accessNotifications.set(accessKey, notification)
+            continue
+          }
+
+          const existingTime = Date.parse(existing.createdAt) || 0
+          const nextTime = Date.parse(notification.createdAt) || 0
+          const shouldReplace = nextTime > existingTime
+            || (
+              nextTime === existingTime
+              && notification.type === "project_role_changed"
+              && existing.type !== "project_role_changed"
+            )
+
+          if (shouldReplace) {
+            accessNotifications.set(accessKey, notification)
+          }
+        }
+
+        const nextNotifications = [
+          ...miscNotifications,
+          ...accessRequestNotifications.values(),
+          ...accessNotifications.values(),
+        ].sort((a, b) => (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0))
+
+        setNotifications(nextNotifications)
       }
     } finally {
       setLoading(false)
@@ -309,7 +531,7 @@ export function NotificationPopover({
                     onResolved={handleInvitationResolved}
                   />
                 ) : (
-                  <RemovedNotificationItem
+                  <GeneralNotificationItem
                     key={`notif-${entry.data.id}`}
                     notification={entry.data}
                     onDismiss={handleNotificationDismissed}

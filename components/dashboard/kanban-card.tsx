@@ -61,6 +61,7 @@ function LabelPill({
 type KanbanCardProps = {
   task: TaskWithProject
   members: ProjectMember[]
+  canWrite?: boolean
   selected?: boolean
   onSelect?: () => void
   onTaskAssigneeChange?: (assignedIds: string[]) => void
@@ -91,6 +92,7 @@ function toTransformString(
 const KanbanCard = React.memo(function KanbanCard({
   task,
   members,
+  canWrite = true,
   selected,
   onSelect,
   onTaskAssigneeChange,
@@ -109,7 +111,7 @@ const KanbanCard = React.memo(function KanbanCard({
     isSorting,
   } = useSortable({
     id: task.id,
-    disabled: isDragOverlay,
+    disabled: isDragOverlay || !canWrite,
   })
 
   const style: React.CSSProperties = {
@@ -222,6 +224,16 @@ const KanbanCard = React.memo(function KanbanCard({
               align="start"
               contentClassName="w-auto overflow-hidden rounded-3xl border border-gray-cool-100 bg-white p-0 shadow-lg"
               stopPropagation
+              disabled={!canWrite}
+              editAccessPrompt={
+                !canWrite
+                  ? {
+                      projectId: task.project_id,
+                      projectName: task.projects?.title,
+                      actionLabel: task.due_date || task.due_date_end ? "change the dates" : "add dates",
+                    }
+                  : undefined
+              }
             >
               <span data-slot="popover-trigger">
                 <button
@@ -266,6 +278,16 @@ const KanbanCard = React.memo(function KanbanCard({
               taskId={task.id}
               priority={(task.priority ?? "none") as Priority}
               onPriorityChange={(p) => onTaskPriorityChange?.(p)}
+              disabled={!canWrite}
+              editAccessPrompt={
+                !canWrite
+                  ? {
+                      projectId: task.project_id,
+                      projectName: task.projects?.title,
+                      actionLabel: "change the priority",
+                    }
+                  : undefined
+              }
             >
               <button
                 type="button"
@@ -315,10 +337,20 @@ const KanbanCard = React.memo(function KanbanCard({
               members={members}
               assignedIds={assignedIds}
               onAssignedIdsChange={(ids) => onTaskAssigneeChange?.(ids)}
+              disabled={!canWrite}
+              editAccessPrompt={
+                !canWrite
+                  ? {
+                      projectId: task.project_id,
+                      projectName: task.projects?.title,
+                      actionLabel: "assign teammates",
+                    }
+                  : undefined
+              }
             >
               <button
                 type="button"
-                className="pointer-events-auto relative flex items-center gap-0 cursor-pointer"
+                className={cn("pointer-events-auto relative flex items-center gap-0", canWrite && "cursor-pointer")}
                 aria-label="Change assignees"
               >
                 {displayAssignees.length > 0 ? (
@@ -343,7 +375,10 @@ const KanbanCard = React.memo(function KanbanCard({
                 ) : (
                   <span
                     data-slot="avatar"
-                    className="relative inline-flex shrink-0 items-center justify-center rounded-full bg-gray-cool-100 text-gray-cool-400 transition-colors hover:bg-gray-cool-200 hover:text-gray-cool-600 size-6"
+                    className={cn(
+                      "relative inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-gray-cool-100 text-gray-cool-400",
+                      canWrite && "transition-colors hover:bg-gray-cool-200 hover:text-gray-cool-600",
+                    )}
                   >
                     <HugeiconsIcon icon={PlusSignIcon} size={12} color="currentColor" strokeWidth={2} />
                   </span>

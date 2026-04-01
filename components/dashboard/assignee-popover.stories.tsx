@@ -1,30 +1,35 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { AssigneePicker } from "./assignee-popover";
+import type { ProjectMember } from "@/lib/data";
 
-const sampleMembers = [
+const sampleMembers: ProjectMember[] = [
   {
     id: "user-1",
     full_name: "Yassir ux",
     email: "yassir@example.com",
     avatar_url: null,
+    role: "editor",
   },
   {
     id: "user-2",
     full_name: "Omar Riahi",
     email: "omar@example.com",
     avatar_url: null,
+    role: "editor",
   },
   {
     id: "user-3",
     full_name: "Sara Johnson",
     email: "sara@example.com",
     avatar_url: null,
+    role: "viewer",
   },
   {
     id: "user-4",
     full_name: "Alex Chen",
     email: "alex@example.com",
     avatar_url: null,
+    role: "editor",
   },
 ];
 

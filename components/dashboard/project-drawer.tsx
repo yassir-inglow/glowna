@@ -15,6 +15,8 @@ import { onPeerChange } from "@/hooks/use-broadcast-sync"
 import { toggleTaskCompleted, reorderTasksInColumn } from "@/app/actions"
 import { useProjectBoardColumns } from "@/hooks/use-project-board-columns"
 import type { ProjectWithMembers, TaskWithProject } from "@/lib/data"
+import { useUser } from "@/components/dashboard/user-provider"
+import { canWriteProject, getProjectPermission } from "@/lib/project-permissions"
 
 type ProjectDrawerProps = {
   projects: ProjectWithMembers[]
@@ -23,6 +25,7 @@ type ProjectDrawerProps = {
 }
 
 export function ProjectDrawer({ projects, projectId, onClose }: ProjectDrawerProps) {
+  const user = useUser()
   const [tasks, setTasks] = React.useState<TaskWithProject[] | null>(null)
   const [loading, setLoading] = React.useState(false)
   const [selectedTaskId, setSelectedTaskId] = React.useState<string | null>(null)
@@ -32,6 +35,15 @@ export function ProjectDrawer({ projects, projectId, onClose }: ProjectDrawerPro
     () => (projectId ? projects.find((p) => p.id === projectId) ?? null : null),
     [projectId, projects],
   )
+  const canWrite = project
+    ? canWriteProject(
+        getProjectPermission({
+          ownerId: project.user_id,
+          userId: user.id,
+          members: project.members,
+        }),
+      )
+    : false
 
   const isOpen = !!project
 
@@ -420,6 +432,7 @@ export function ProjectDrawer({ projects, projectId, onClose }: ProjectDrawerPro
                 task={selectedTask}
                 members={project.members}
                 boardColumns={boardColumns}
+                canWrite={canWrite}
                 onClose={() => setSelectedTaskId(null)}
                 onTaskToggle={handleTaskToggle}
                 onTitleChange={handleTaskTitleChange}

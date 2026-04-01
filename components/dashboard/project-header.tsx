@@ -21,6 +21,7 @@ import { useProjectPresence } from "@/hooks/use-project-presence"
 import { useUser } from "@/components/dashboard/user-provider"
 import type { BoardColumnConfig } from "@/hooks/use-project-board-columns"
 import type { ProjectMember, ProjectWithMembers } from "@/lib/data"
+import { getProjectPermission, getProjectPermissionLabel } from "@/lib/project-permissions"
 
 type ProjectView = "overview" | "list" | "board" | "timeline"
 
@@ -31,6 +32,7 @@ type ProjectHeaderProps = {
   columns: BoardColumnConfig[]
   onSaveColumns: (next: BoardColumnConfig[]) => Promise<void> | void
   onNewTask: () => void
+  canWrite?: boolean
 }
 
 export function ProjectHeader({
@@ -40,9 +42,22 @@ export function ProjectHeader({
   columns,
   onSaveColumns,
   onNewTask,
+  canWrite = true,
 }: ProjectHeaderProps) {
   const user = useUser()
   const activeUserIds = useProjectPresence(project.id, user.id)
+  const projectPermission = React.useMemo(
+    () =>
+      getProjectPermission({
+        ownerId: project.user_id,
+        userId: user.id,
+        members: project.members,
+      }),
+    [project.members, project.user_id, user.id],
+  )
+  const permissionLabel = projectPermission && projectPermission !== "owner"
+    ? getProjectPermissionLabel(projectPermission)
+    : null
 
   const { activeMembers, inactiveMembers } = React.useMemo(() => {
     const ownerId = project.user_id
@@ -69,6 +84,11 @@ export function ProjectHeader({
           <h1 className="text-[20px] font-medium leading-[30px] text-gray-cool-700">
             {project.title}
           </h1>
+          {permissionLabel ? (
+            <span className="inline-flex h-7 items-center rounded-full border border-gray-cool-100 bg-alpha-900 px-3 text-text-xs font-medium text-gray-cool-500">
+              {permissionLabel}
+            </span>
+          ) : null}
           <Button
             type="button"
             aria-label="Project options"
@@ -178,7 +198,7 @@ export function ProjectHeader({
             iconStrokeWidth={1.5}
             className="size-8 border-0 bg-alpha-900 text-gray-cool-500 [--icon-color:currentColor] hover:bg-alpha-800"
           />
-          <ColumnsPopover columns={columns} onSave={onSaveColumns} />
+          <ColumnsPopover columns={columns} onSave={onSaveColumns} disabled={!canWrite} />
           <Button
             type="button"
             variant="primary"
@@ -186,6 +206,7 @@ export function ProjectHeader({
             leadingIcon={Add01Icon}
             iconStrokeWidth={1.5}
             className="h-8 py-1.5 pl-1.5 pr-3"
+            disabled={!canWrite}
             onClick={onNewTask}
           >
             New Task

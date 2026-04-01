@@ -51,6 +51,7 @@ function Input({
   trailing,
   ref,
   disabled,
+  suppressHydrationWarning,
   ...props
 }: InputProps) {
   const iconPx = iconSizeMap[size ?? "lg"] ?? 24
@@ -77,6 +78,7 @@ function Input({
       <input
         ref={ref}
         disabled={disabled}
+        suppressHydrationWarning={suppressHydrationWarning ?? true}
         className="flex-1 min-w-0 bg-transparent outline-none text-gray-cool-700 placeholder:text-gray-cool-300 disabled:cursor-not-allowed"
         {...props}
       />

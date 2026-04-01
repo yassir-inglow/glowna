@@ -24,6 +24,7 @@ type KanbanColumnProps = {
   config: BoardColumnConfig
   tasks: TaskWithProject[]
   members: ProjectMember[]
+  canWrite?: boolean
   isDragging?: boolean
   /** Disable layout animation for the card that just dropped. */
   suppressLayoutForId?: string | null
@@ -58,6 +59,7 @@ const KanbanColumn = React.memo(function KanbanColumn({
   config,
   tasks,
   members,
+  canWrite = true,
   isDragging = false,
   suppressLayoutForId,
   onTaskSelect,
@@ -100,6 +102,7 @@ const KanbanColumn = React.memo(function KanbanColumn({
   }, [renameOpen])
 
   function startTaskComposer() {
+    if (!canWrite) return
     setIsAddingTask(true)
   }
 
@@ -124,6 +127,7 @@ const KanbanColumn = React.memo(function KanbanColumn({
   }
 
   function startLabelEdit() {
+    if (!canWrite) return
     setRenameOpen(true)
   }
 
@@ -175,72 +179,80 @@ const KanbanColumn = React.memo(function KanbanColumn({
             color={getColumnRingColor(config.headerBg)}
             aria-label={`${config.label} progress`}
           />
-          <Popover open={renameOpen} onOpenChange={(open) => {
-            if (!open) {
-              cancelLabelEdit()
-              return
-            }
-            startLabelEdit()
-          }}>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                className="max-w-[180px] truncate text-left text-text-sm font-semibold text-gray-cool-700 outline-none transition-colors hover:text-gray-cool-800"
-              >
-                {renameOpen ? labelDraft || config.label : config.label}
-              </button>
-            </PopoverTrigger>
-            <PopoverContent align="start" side="bottom" className="w-[248px] rounded-[24px] p-2.5">
-              <div className="flex flex-col gap-2">
-                <Input
-                  ref={labelInputRef}
-                  value={labelDraft}
-                  onChange={(e) => setLabelDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault()
-                      void submitLabelEdit()
-                    } else if (e.key === "Escape") {
-                      e.preventDefault()
-                      cancelLabelEdit()
+          {canWrite ? (
+            <Popover open={renameOpen} onOpenChange={(open) => {
+              if (!open) {
+                cancelLabelEdit()
+                return
+              }
+              startLabelEdit()
+            }}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="max-w-[180px] truncate text-left text-text-sm font-semibold text-gray-cool-700 outline-none transition-colors hover:text-gray-cool-800"
+                >
+                  {renameOpen ? labelDraft || config.label : config.label}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" side="bottom" className="w-[248px] rounded-[24px] p-2.5">
+                <div className="flex flex-col gap-2">
+                  <Input
+                    ref={labelInputRef}
+                    value={labelDraft}
+                    onChange={(e) => setLabelDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        void submitLabelEdit()
+                      } else if (e.key === "Escape") {
+                        e.preventDefault()
+                        cancelLabelEdit()
+                      }
+                    }}
+                    size="md"
+                    className="w-full rounded-[18px] pr-1"
+                    aria-label="Column name"
+                    trailing={
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="xxs"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => void submitLabelEdit()}
+                        loading={isSavingLabel}
+                        disabled={!labelDraft.trim()}
+                        className="px-2.5"
+                      >
+                        Save
+                      </Button>
                     }
-                  }}
-                  size="md"
-                  className="w-full rounded-[18px] pr-1"
-                  aria-label="Column name"
-                  trailing={
-                    <Button
-                      type="button"
-                      variant="primary"
-                      size="xxs"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => void submitLabelEdit()}
-                      loading={isSavingLabel}
-                      disabled={!labelDraft.trim()}
-                      className="px-2.5"
-                    >
-                      Save
-                    </Button>
-                  }
-                />
-              </div>
-            </PopoverContent>
-          </Popover>
+                  />
+                </div>
+              </PopoverContent>
+            </Popover>
+          ) : (
+            <span className="max-w-[180px] truncate text-left text-text-sm font-semibold text-gray-cool-700">
+              {config.label}
+            </span>
+          )}
           <span className="text-text-xs text-gray-cool-400">
             {tasks.length}
           </span>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover/column:opacity-100 group-focus-within/column:opacity-100">
-          <button
-            type="button"
-            className="rounded-full p-1 text-gray-cool-400 transition-colors hover:bg-alpha-800 hover:text-gray-cool-600"
-            aria-label={`Add card to ${config.label}`}
-            onClick={startTaskComposer}
-          >
-            <HugeiconsIcon icon={Add01Icon} size={16} strokeWidth={1.8} />
-          </button>
-        </div>
+        {canWrite ? (
+          <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover/column:opacity-100 group-focus-within/column:opacity-100">
+            <button
+              type="button"
+              className="rounded-full p-1 text-gray-cool-400 transition-colors hover:bg-alpha-800 hover:text-gray-cool-600"
+              aria-label={`Add card to ${config.label}`}
+              onClick={startTaskComposer}
+            >
+              <HugeiconsIcon icon={Add01Icon} size={16} strokeWidth={1.8} />
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {/* ── Drop zone / card list ─────────────────────────────────────────── */}
@@ -304,6 +316,7 @@ const KanbanColumn = React.memo(function KanbanColumn({
               <KanbanCard
                 task={task}
                 members={members}
+                canWrite={canWrite}
                 layoutEnabled={suppressLayoutForId !== task.id}
                 selected={selectedTaskId === task.id}
                 onSelect={() => onTaskSelect?.(task.id)}
