@@ -2,11 +2,13 @@ export function projectInviteEmail({
   projectName,
   inviterName,
   acceptUrl,
+  invitedEmail,
   isExistingUser,
 }: {
   projectName: string
   inviterName: string
   acceptUrl: string
+  invitedEmail: string
   isExistingUser: boolean
 }) {
   const headline = isExistingUser
@@ -17,7 +19,7 @@ export function projectInviteEmail({
 
   const subtitle = isExistingUser
     ? "Click below to accept the invitation and start collaborating."
-    : "You'll need to create a free Glowna account first, then you'll be added to the project automatically."
+    : `Use ${invitedEmail} to create your free Glowna account, then you'll be added to the project automatically.`
 
   return {
     subject: `You're invited to "${projectName}" on Glowna`,

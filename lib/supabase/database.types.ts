@@ -359,6 +359,12 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
+      get_invitation_context: {
+        Args: {
+          p_token: string
+        }
+        Returns: Json
+      }
       is_project_member: {
         Args: {
           p_profile_id: string

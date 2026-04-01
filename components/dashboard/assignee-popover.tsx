@@ -52,14 +52,18 @@ export function AssigneePicker({
       ? assignedIds.filter((id) => id !== profileId)
       : [...assignedIds, profileId]
 
-    onAssignedIdsChange?.(next)
+    startTransition(() => {
+      onAssignedIdsChange?.(next)
+    })
     markMutation("task_assignees")
     startTransition(async () => {
       try {
         await toggleTaskAssignee(taskId, profileId)
       } catch (err) {
         console.error("[AssigneePicker] toggleTaskAssignee failed:", err)
-        onAssignedIdsChange?.(prev)
+        startTransition(() => {
+          onAssignedIdsChange?.(prev)
+        })
       }
       onChanged?.()
     })
@@ -67,14 +71,18 @@ export function AssigneePicker({
 
   function handleClear() {
     const prev = [...assignedIds]
-    onAssignedIdsChange?.([])
+    startTransition(() => {
+      onAssignedIdsChange?.([])
+    })
     markMutation("task_assignees")
     startTransition(async () => {
       try {
         await clearTaskAssignees(taskId)
       } catch (err) {
         console.error("[AssigneePicker] clearTaskAssignees failed:", err)
-        onAssignedIdsChange?.(prev)
+        startTransition(() => {
+          onAssignedIdsChange?.(prev)
+        })
       }
       onChanged?.()
     })

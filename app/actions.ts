@@ -505,12 +505,19 @@ export async function inviteToProject(
   const inviterName = inviterProfile?.full_name ?? inviterProfile?.email ?? "Someone"
 
   const origin = await getAppOrigin()
-  const acceptUrl = `${origin}/invite?token=${invitation.token}`
+  const inviteUrl = new URL("/invite", origin)
+  inviteUrl.searchParams.set("token", invitation.token)
+  inviteUrl.searchParams.set("email", normalizedEmail)
+  inviteUrl.searchParams.set("project", projectName)
+  inviteUrl.searchParams.set("inviter", inviterName)
+  inviteUrl.searchParams.set("hasAccount", existingProfile ? "1" : "0")
+  const acceptUrl = inviteUrl.toString()
 
   const { subject, html } = projectInviteEmail({
     projectName,
     inviterName,
     acceptUrl,
+    invitedEmail: normalizedEmail,
     isExistingUser: !!existingProfile,
   })
 
@@ -542,7 +549,14 @@ export async function inviteToProject(
 export async function acceptInvitation(
   token: string,
 ): Promise<{ projectId?: string; error?: string }> {
-  return acceptInvitationForCurrentUser(token)
+  const result = await acceptInvitationForCurrentUser(token)
+
+  if (result.projectId) {
+    revalidatePath("/")
+    revalidatePath(`/projects/${result.projectId}`)
+  }
+
+  return result
 }
 
 export async function declineInvitation(

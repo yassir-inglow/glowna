@@ -87,16 +87,24 @@ export function TaskDetailPanel({ task, members, boardColumns, onTaskToggle, onT
 
   function handleCheckedChange(checked: boolean | "indeterminate") {
     if (checked === "indeterminate") return
-    setCompleted(checked)
+    startTransition(() => {
+      setCompleted(checked)
+    })
     if (onTaskToggle) {
-      onTaskToggle(task.id, checked).catch(() => setCompleted(!checked))
+      onTaskToggle(task.id, checked).catch(() => {
+        startTransition(() => {
+          setCompleted(!checked)
+        })
+      })
     } else {
       markMutation("tasks")
       startTransition(async () => {
         try {
           await toggleTaskCompleted(task.id, checked)
         } catch {
-          setCompleted(!checked)
+          startTransition(() => {
+            setCompleted(!checked)
+          })
         }
       })
     }
