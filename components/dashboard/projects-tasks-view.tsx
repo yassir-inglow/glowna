@@ -239,6 +239,7 @@ export function ProjectsTasksView({ projects, tasks }: ProjectsTasksViewProps) {
                       id={task.id}
                       title={task.title}
                       completed={task.completed}
+                      status={task.status}
                       canWrite={writableProjectIds.has(task.project_id)}
                       showAddons={!!(task.sub_task_total || task.add_text || task.label_text || task.comment_count)}
                       subTaskCurrent={task.sub_task_current}

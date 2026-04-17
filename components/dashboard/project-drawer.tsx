@@ -434,7 +434,6 @@ export function ProjectDrawer({ projects, projectId, onClose }: ProjectDrawerPro
                 boardColumns={boardColumns}
                 canWrite={canWrite}
                 onClose={() => setSelectedTaskId(null)}
-                onTaskToggle={handleTaskToggle}
                 onTitleChange={handleTaskTitleChange}
                 onDateChange={handleTaskDateChange}
                 onPriorityChange={handleTaskPriorityChange}

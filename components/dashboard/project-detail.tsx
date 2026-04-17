@@ -393,11 +393,14 @@ export function ProjectDetail({ project, tasks, boardColumns: boardColumnsProp, 
         <TimelineView
           tasks={displayTasks}
           projectId={project.id}
+          members={project.members}
           columns={boardColumns}
           canWrite={canWrite}
           onTaskSelect={onTaskSelect}
           selectedTaskId={selectedTaskId}
           onTaskDateChange={onTaskDateChange}
+          onTaskAssigneeChange={handleOptimisticAssigneeChange}
+          onTaskStatusChange={handleOptimisticStatusChange}
           onTaskCreated={onTaskCreated}
         />
       ) : (
@@ -416,8 +419,10 @@ export function ProjectDetail({ project, tasks, boardColumns: boardColumnsProp, 
                 id={task.id}
                 title={task.title}
                 completed={task.completed}
+                status={task.status}
+                boardColumns={boardColumns}
                 canWrite={canWrite}
-                onCompletedChange={onTaskToggle ? (checked) => onTaskToggle(task.id, checked) : undefined}
+                onStatusChange={handleOptimisticStatusChange ? (status) => handleOptimisticStatusChange(task.id, status) : undefined}
                 showAddons={!!(task.sub_task_total || task.add_text || task.label_text || task.comment_count)}
                 subTaskCurrent={task.sub_task_current}
                 subTaskTotal={task.sub_task_total}

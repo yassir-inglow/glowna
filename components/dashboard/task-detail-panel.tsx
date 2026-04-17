@@ -6,14 +6,13 @@ import { motion } from "motion/react"
 import { Calendar03Icon, Flag02Icon, User02Icon, Tag01Icon } from "@hugeicons/core-free-icons"
 
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import { AssigneePopover } from "@/components/dashboard/assignee-popover"
 import { PriorityPopover, getPriorityConfig } from "@/components/dashboard/priority-picker"
 import type { Priority } from "@/components/dashboard/priority-picker"
 import { StatusPopover, getStatusConfig } from "@/components/dashboard/status-picker"
 import { TaskDatePopover, formatTaskDateLabel } from "@/components/dashboard/task-date-popover"
 import { ProgressRing } from "@/components/ui/progress-ring"
-import { updateTaskTitle, toggleTaskCompleted } from "@/app/actions"
+import { updateTaskTitle } from "@/app/actions"
 import { markMutation } from "@/hooks/mutation-tracker"
 import type { BoardColumnConfig } from "@/hooks/use-project-board-columns"
 import type { ProjectMember, TaskWithProject } from "@/lib/data"
@@ -24,7 +23,6 @@ type TaskDetailPanelProps = {
   boardColumns?: BoardColumnConfig[]
   canWrite?: boolean
   onClose: () => void
-  onTaskToggle?: (taskId: string, completed: boolean) => Promise<void>
   onTitleChange?: (taskId: string, title: string) => void
   onDateChange?: (taskId: string, dueDate: string | null, dueDateEnd: string | null) => void
   onPriorityChange?: (taskId: string, priority: Priority) => void
@@ -32,7 +30,7 @@ type TaskDetailPanelProps = {
   onStatusChange?: (taskId: string, status: string) => void
 }
 
-export function TaskDetailPanel({ task, members, boardColumns, canWrite = true, onTaskToggle, onTitleChange, onDateChange, onPriorityChange, onAssigneeChange, onStatusChange }: TaskDetailPanelProps) {
+export function TaskDetailPanel({ task, members, boardColumns, canWrite = true, onTitleChange, onDateChange, onPriorityChange, onAssigneeChange, onStatusChange }: TaskDetailPanelProps) {
   const [, startTransition] = useTransition()
 
   // ── Title ──────────────────────────────────────────────────────────────────
@@ -85,33 +83,13 @@ export function TaskDetailPanel({ task, members, boardColumns, canWrite = true, 
     })
   }
 
-  // ── Completed ──────────────────────────────────────────────────────────────
-  const [completed, setCompleted] = React.useOptimistic(task.completed)
+  const [localStatus, setLocalStatus] = React.useOptimistic(task.status ?? "todo")
 
-  function handleCheckedChange(checked: boolean | "indeterminate") {
-    if (checked === "indeterminate") return
-    if (!canWrite) return
+  function handleStatusChange(nextStatus: string) {
     startTransition(() => {
-      setCompleted(checked)
+      setLocalStatus(nextStatus)
     })
-    if (onTaskToggle) {
-      onTaskToggle(task.id, checked).catch(() => {
-        startTransition(() => {
-          setCompleted(!checked)
-        })
-      })
-    } else {
-      markMutation("tasks")
-      startTransition(async () => {
-        try {
-          await toggleTaskCompleted(task.id, checked)
-        } catch {
-          startTransition(() => {
-            setCompleted(!checked)
-          })
-        }
-      })
-    }
+    onStatusChange?.(task.id, nextStatus)
   }
 
   // ── Assignees ──────────────────────────────────────────────────────────────
@@ -127,7 +105,7 @@ export function TaskDetailPanel({ task, members, boardColumns, canWrite = true, 
   )
 
   const priorityConfig = getPriorityConfig(task.priority ?? "none")
-  const statusConfig = getStatusConfig(task.status ?? "todo", boardColumns)
+  const statusConfig = getStatusConfig(localStatus, boardColumns)
 
   const assigneeLabel = displayAssignees.length === 0
     ? "Assignee"
@@ -145,8 +123,33 @@ export function TaskDetailPanel({ task, members, boardColumns, canWrite = true, 
     >
       <div className="flex flex-col gap-3 px-6 pt-6 pb-5">
         {/* Task name */}
-        <div className="flex items-start gap-3">
-          <Checkbox checked={completed} onCheckedChange={handleCheckedChange} disabled={!canWrite} className="mt-2" />
+        <div className="flex items-center gap-3">
+          <StatusPopover
+            taskId={task.id}
+            status={localStatus}
+            columns={boardColumns}
+            onStatusChange={handleStatusChange}
+            disabled={!canWrite}
+            editAccessPrompt={
+              !canWrite
+                ? {
+                    projectId: task.project_id,
+                    projectName: task.projects?.title,
+                    actionLabel: "change the status",
+                  }
+                : undefined
+            }
+            >
+            <span data-slot="popover-trigger">
+              <button
+                type="button"
+                aria-label={`Task status: ${statusConfig.label}`}
+                className="flex size-6 items-center justify-center rounded-full text-gray-cool-500 transition-colors hover:bg-alpha-900"
+              >
+                <ProgressRing value={statusConfig.ringValue} size={22} color={statusConfig.ringColor} />
+              </button>
+            </span>
+          </StatusPopover>
           <input
             ref={inputRef}
             value={title}
@@ -154,7 +157,9 @@ export function TaskDetailPanel({ task, members, boardColumns, canWrite = true, 
             onBlur={saveTitle}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); saveTitle(); inputRef.current?.blur() } }}
             readOnly={!canWrite}
-            className="flex-1 bg-transparent text-display-xs font-medium text-gray-cool-800 outline-none placeholder:text-gray-cool-300"
+            className={`flex-1 bg-transparent text-display-xs font-medium outline-none placeholder:text-gray-cool-300 ${
+              localStatus === "done" ? "text-gray-cool-400 line-through" : "text-gray-cool-800"
+            }`}
             placeholder="Task name"
           />
         </div>
@@ -215,9 +220,9 @@ export function TaskDetailPanel({ task, members, boardColumns, canWrite = true, 
           {/* Status */}
           <StatusPopover
             taskId={task.id}
-            status={task.status ?? "todo"}
+            status={localStatus}
             columns={boardColumns}
-            onStatusChange={(s) => onStatusChange?.(task.id, s)}
+            onStatusChange={handleStatusChange}
             disabled={!canWrite}
             editAccessPrompt={
               !canWrite

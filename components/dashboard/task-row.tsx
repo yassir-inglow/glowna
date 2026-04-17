@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useOptimistic, useRef, useTransition, useMemo } from "react"
+import type * as React from "react"
 
 import {
   Square01Icon,
@@ -17,15 +18,15 @@ import { cn } from "@/lib/utils"
 import { Avatar, AvatarAvvvatars, AvatarGroup, AvatarImage, AvatarSkeleton } from "@/components/ui/avatar"
 
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AssigneePopover } from "@/components/dashboard/assignee-popover"
 import { PriorityPopover, PriorityButton } from "@/components/dashboard/priority-picker"
 import type { Priority } from "@/components/dashboard/priority-picker"
 import { TaskDatePopover, formatTaskDateLabel } from "@/components/dashboard/task-date-popover"
-import { toggleTaskCompleted } from "@/app/actions"
-import { markMutation } from "@/hooks/mutation-tracker"
+import { StatusPopover, getStatusConfig } from "@/components/dashboard/status-picker"
+import { ProgressRing } from "@/components/ui/progress-ring"
 import type { ProjectMember } from "@/lib/data"
+import type { BoardColumnConfig } from "@/hooks/use-project-board-columns"
 
 function initials(name: string | null | undefined): string {
   if (!name) return "?"
@@ -105,8 +106,10 @@ export type TaskRowProps = {
   id?: string
   title?: string
   completed?: boolean
+  status?: string
+  boardColumns?: BoardColumnConfig[]
   canWrite?: boolean
-  onCompletedChange?: (completed: boolean) => void | Promise<void>
+  onStatusChange?: (status: string) => void
   showAddons?: boolean
   subTaskCurrent?: number
   subTaskTotal?: number
@@ -141,8 +144,10 @@ export function TaskRow({
   id,
   title = "Project name",
   completed = false,
+  status,
+  boardColumns,
   canWrite = true,
-  onCompletedChange,
+  onStatusChange,
   showAddons = true,
   subTaskCurrent = 1,
   subTaskTotal = 5,
@@ -164,9 +169,11 @@ export function TaskRow({
   onSelect,
 }: TaskRowProps) {
   const [, startTransition] = useTransition()
-  const [optimisticCompleted, setOptimisticCompleted] = useOptimistic(completed)
+  const initialStatus = status ?? (completed ? "done" : "todo")
+  const [optimisticStatus, setOptimisticStatus] = useOptimistic(initialStatus)
   const [contextOpen, setContextOpen] = useState(false)
   const rowRef = useRef<HTMLDivElement>(null)
+  const statusConfig = getStatusConfig(optimisticStatus, boardColumns)
 
   // ── Local assignee state (optimistic + synced from parent for realtime) ─────
   const [localAssignedIds, setLocalAssignedIds] = useOptimistic(assignedIds ?? [])
@@ -203,33 +210,11 @@ export function TaskRow({
     }
   }, [contextOpen])
 
-  function handleCheckedChange(checked: boolean | "indeterminate") {
-    if (checked === "indeterminate") return
-    if (!canWrite) return
-
-    if (onCompletedChange) {
-      startTransition(async () => {
-        setOptimisticCompleted(checked)
-        try {
-          await onCompletedChange(checked)
-        } catch {
-          setOptimisticCompleted(!checked)
-        }
-      })
-      return
-    }
-
-    if (!id) return
-
-    markMutation("tasks")
-    startTransition(async () => {
-      setOptimisticCompleted(checked)
-      try {
-        await toggleTaskCompleted(id, checked)
-      } catch {
-        setOptimisticCompleted(!checked)
-      }
+  function handleStatusChange(nextStatus: string) {
+    startTransition(() => {
+      setOptimisticStatus(nextStatus)
     })
+    onStatusChange?.(nextStatus)
   }
 
   function handleRowClick(e: React.MouseEvent<HTMLDivElement>) {
@@ -257,13 +242,48 @@ export function TaskRow({
       {/* Left: task info */}
       <div className="flex flex-1 min-w-0 flex-col gap-0.5">
         <div className="flex items-center gap-2">
-          <Checkbox
-            checked={optimisticCompleted}
-            onCheckedChange={handleCheckedChange}
-            disabled={!canWrite}
-          />
+          {id ? (
+            <StatusPopover
+              taskId={id}
+              status={optimisticStatus}
+              columns={boardColumns}
+              onStatusChange={handleStatusChange}
+              disabled={!canWrite}
+              editAccessPrompt={
+                !canWrite && projectId
+                  ? {
+                      projectId,
+                      projectName,
+                      actionLabel: "change the status",
+                    }
+                  : undefined
+              }
+            >
+              <span data-slot="popover-trigger">
+                <button
+                  type="button"
+                  aria-label={`Task status: ${statusConfig.label}`}
+                  className={cn(
+                    "flex size-[18px] items-center justify-center rounded-full text-gray-cool-500 transition-colors",
+                    canWrite && "cursor-pointer hover:bg-alpha-900",
+                  )}
+                >
+                  <ProgressRing
+                    value={statusConfig.ringValue}
+                    size={18}
+                    color={statusConfig.ringColor}
+                  />
+                </button>
+              </span>
+            </StatusPopover>
+          ) : (
+            <ProgressRing value={statusConfig.ringValue} size={18} color={statusConfig.ringColor} />
+          )}
           <span
-            className="text-text-md font-medium truncate text-gray-cool-700"
+            className={cn(
+              "text-text-md truncate font-medium",
+              optimisticStatus === "done" ? "text-gray-cool-400 line-through" : "text-gray-cool-700",
+            )}
           >
             {title}
           </span>

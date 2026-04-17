@@ -213,8 +213,6 @@ export function ProjectHeader({
           </Button>
         </div>
       </div>
-
-      <div aria-hidden="true" className="mt-4 h-px w-full bg-gray-cool-100" />
     </div>
   )
 }
